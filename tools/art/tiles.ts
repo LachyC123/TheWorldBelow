@@ -333,6 +333,31 @@ function rustFront(r: Raster, v: number, rand: () => number): void {
   if (v === 2) r.rect(4, 3, 8, 3, P.slate[2]).hline(4, 11, 3, P.slate[4]);
 }
 
+function stationFront(r: Raster, v: number): void {
+  // cream glazed tiles with a deep green band: an old underground line
+  r.rect(0, 0, T, T, '#cfc5a8');
+  for (let y = 0; y < 10; y += 3) r.hline(0, 15, y, '#b8ae92');
+  for (let x = 0; x < T; x += 4) r.vline(x, 0, 9, '#b8ae92');
+  r.rect(0, 10, T, 3, '#1f4a3a').hline(0, 15, 10, '#2e6b56');
+  r.rect(0, 13, T, 3, '#5a5040');
+  if (v === 2) {
+    // fragment of the line's name roundel
+    r.ellipse(8, 5, 5, 4, P.verm[1]).ellipse(8, 5, 3.5, 2.6, '#cfc5a8').rect(2, 4, 12, 2, '#1f3a6a');
+  }
+}
+
+function cliffFront(r: Raster, v: number, rand: () => number): void {
+  // wet basalt columns, the edge of something very old
+  r.rect(0, 0, T, T, '#232a36');
+  for (let x = 0; x < T; x += 4) {
+    r.vline(x, 0, 15, '#161b24');
+    r.vline(x + 1, 0, 15, '#2f3848');
+  }
+  r.speckle(0, 0, T, T, ['#3a4558', '#1a1f2a'], 0.12, rand);
+  if (v === 2) for (let i = 0; i < 4; i++) r.px(2 + i * 3, 4 + (i % 2) * 5, P.mint[3]);
+  r.rect(0, 13, T, 3, '#141820');
+}
+
 const LOOKS: Record<WallStyleId, WallLook> = {
   [WallStyle.BRICK]: { top: '#20263a', topHi: P.slate[4], topLo: P.ink, front: brickFront },
   [WallStyle.HOME]: { top: '#1d2228', topHi: P.wood[4], topLo: P.ink, front: homeFront },
@@ -340,6 +365,8 @@ const LOOKS: Record<WallStyleId, WallLook> = {
   [WallStyle.SERVICE]: { top: '#191e28', topHi: P.slate[5], topLo: P.ink, front: serviceFront },
   [WallStyle.GALLERY]: { top: '#122225', topHi: P.mint[2], topLo: P.ink, front: galleryFront },
   [WallStyle.RUST]: { top: '#20160f', topHi: P.rust[4], topLo: P.ink, front: rustFront },
+  [WallStyle.STATION]: { top: '#1c2124', topHi: '#cfc5a8', topLo: P.ink, front: stationFront },
+  [WallStyle.CLIFF]: { top: '#12161e', topHi: '#4a5874', topLo: P.ink, front: cliffFront },
 };
 
 function wallTop(style: WallStyleId, mask: number): Raster {
@@ -374,6 +401,106 @@ function wallFront(style: WallStyleId, variant: number): Raster {
   if (variant === 4 || variant === 5) r.vline(15, 0, 15, P.ink).vline(14, 0, 15, [0, 0, 0, 90]);
   // ambient occlusion where the wall meets the floor
   r.hline(0, 15, 15, [0, 0, 0, 160]);
+  return r;
+}
+
+function stationTile(alt: boolean): Raster {
+  const r = tile();
+  r.rect(0, 0, T, T, alt ? '#7a7466' : '#8a8474');
+  for (let y = 0; y < T; y += 8) r.hline(0, 15, y, '#5f5a4e');
+  for (let x = alt ? 4 : 0; x < T; x += 8) r.vline(x, 0, 15, '#5f5a4e');
+  r.px(3, 3, '#9a9482').px(11, 12, '#9a9482');
+  return r;
+}
+
+function platformEdge(): Raster {
+  const r = stationTile(false);
+  r.rect(0, 11, T, 3, P.amber[3]);
+  for (let x = 0; x < T; x += 4) r.rect(x, 11, 2, 3, P.amber[4]);
+  r.rect(0, 14, T, 2, P.ink);
+  return r;
+}
+
+function track(seed: number): Raster {
+  const r = gravel(seed);
+  for (let x = 1; x < T; x += 5) r.rect(x, 1, 3, 14, P.wood[1]);
+  r.rect(0, 4, T, 2, P.slate[4]).hline(0, 15, 4, P.bone[1]);
+  r.rect(0, 11, T, 2, P.slate[4]).hline(0, 15, 11, P.bone[1]);
+  return r;
+}
+
+function sand(seed: number, wet: boolean, glow = false): Raster {
+  const r = tile();
+  const rand = rng(seed);
+  r.rect(0, 0, T, T, wet ? '#4a4c52' : '#6a6a66');
+  r.speckle(0, 0, T, T, wet ? ['#3a3d44', '#5a5d64', '#2f3a48'] : ['#5a5a56', '#7c7c76', '#8a8880'], 0.3, rand);
+  if (wet) for (let i = 0; i < 2; i++) { const y = Math.floor(rand() * 15); const x = Math.floor(rand() * 8); r.hline(x, x + 4, y, '#5f7a90'); }
+  if (glow) for (let i = 0; i < 3; i++) r.px(Math.floor(rand() * 16), Math.floor(rand() * 16), P.mint[4]);
+  return r;
+}
+
+function shingle(seed: number): Raster {
+  const r = tile();
+  const rand = rng(seed);
+  r.rect(0, 0, T, T, '#3e4048');
+  for (let i = 0; i < 14; i++) r.ellipse(rand() * 16, rand() * 16, 1.6, 1.1, rand() < 0.5 ? '#5a5e6a' : '#2e3038');
+  return r;
+}
+
+function pier(edge: boolean): Raster {
+  const r = tile();
+  for (let x = 0; x < T; x += 4) {
+    r.rect(x, 0, 4, T, x % 8 ? P.wood[2] : P.wood[3]);
+    r.vline(x, 0, 15, P.wood[1]);
+  }
+  r.px(2, 3, P.slate[3]).px(10, 12, P.slate[3]);
+  if (edge) r.rect(0, 13, T, 3, P.wood[0]).hline(0, 15, 13, P.wood[4]);
+  return r;
+}
+
+function deepWater(seed: number): Raster {
+  const r = tile();
+  const rand = rng(seed);
+  r.rect(0, 0, T, T, '#060c16');
+  r.speckle(0, 0, T, T, ['#0a1626'], 0.2, rand);
+  for (let i = 0; i < 2; i++) { const y = Math.floor(rand() * 15); const x = Math.floor(rand() * 10); r.hline(x, x + 3, y, '#12304a'); }
+  return r;
+}
+
+function tideWater(): Raster {
+  const r = tile();
+  r.rect(0, 0, T, T, '#13304a');
+  r.hline(2, 6, 4, '#2a5a80').hline(9, 13, 10, '#2a5a80').px(12, 3, '#5f9fcf');
+  return r;
+}
+
+function tideFoam(): Raster {
+  const r = tideWater();
+  r.hline(0, 15, 0, P.bone[2]).hline(1, 14, 1, '#7fa0b8');
+  return r;
+}
+
+function cellarFloor(): Raster {
+  const r = tile();
+  r.rect(0, 0, T, T, P.brick[1]);
+  for (let y = 0; y < T; y += 4) r.hline(0, 15, y, P.brick[0]);
+  for (let y = 0; y < T; y += 4) for (let x = (y / 4) % 2 ? 4 : 0; x < T; x += 8) r.vline(x, y, y + 3, P.brick[0]);
+  return r;
+}
+
+function caveRock(seed: number): Raster {
+  const r = tile();
+  const rand = rng(seed);
+  r.rect(0, 0, T, T, '#262c38');
+  r.speckle(0, 0, T, T, ['#1c2028', '#323a4a', '#2a3a3a'], 0.35, rand);
+  r.px(4, 9, P.mint[3]);
+  return r;
+}
+
+function stationZero(): Raster {
+  const r = stationTile(false);
+  // mosaic numeral set into the floor: 0
+  r.ellipse(8, 8, 6, 7, '#1f3a6a').ellipse(8, 8, 3.5, 4.5, '#8a8474');
   return r;
 }
 
@@ -415,6 +542,22 @@ export function buildTileset(): Raster {
   put(Floor.DRAIN, drain(29));
   put(Floor.METAL_DARK, metal(30, true));
   put(Floor.CABLE_CORNER, cable('c', 31));
+  put(Floor.STATION_TILE, stationTile(false));
+  put(Floor.STATION_TILE_B, stationTile(true));
+  put(Floor.PLATFORM_EDGE, platformEdge());
+  put(Floor.TRACK, track(291));
+  put(Floor.SAND, sand(292, false));
+  put(Floor.SAND_WET, sand(293, true));
+  put(Floor.SHINGLE, shingle(294));
+  put(Floor.PIER, pier(false));
+  put(Floor.DEEP_WATER, deepWater(296));
+  put(Floor.TIDE_WATER, tideWater());
+  put(Floor.CELLAR_FLOOR, cellarFloor());
+  put(Floor.CAVE_ROCK, caveRock(299));
+  put(Floor.GLOW_SAND, sand(300, true, true));
+  put(Floor.STATION_ZERO, stationZero());
+  put(Floor.PIER_EDGE, pier(true));
+  put(Floor.TIDE_FOAM, tideFoam());
   for (const style of Object.values(WallStyle)) {
     for (let m = 0; m < 16; m++) put(wallTopIndex(style, m), wallTop(style, m));
     for (let v = 0; v < 6; v++) put(wallFrontIndex(style, v), wallFront(style, v));

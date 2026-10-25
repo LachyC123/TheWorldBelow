@@ -36,12 +36,29 @@ export const Floor = {
   DRAIN: 29,
   METAL_DARK: 30,
   CABLE_CORNER: 31,
+  // second floor block (after the wall styles)
+  STATION_TILE: 288,
+  STATION_TILE_B: 289,
+  PLATFORM_EDGE: 290,
+  TRACK: 291,
+  SAND: 292,
+  SAND_WET: 293,
+  SHINGLE: 294,
+  PIER: 295,
+  DEEP_WATER: 296,
+  TIDE_WATER: 297,
+  CELLAR_FLOOR: 298,
+  CAVE_ROCK: 299,
+  GLOW_SAND: 300,
+  STATION_ZERO: 301,
+  PIER_EDGE: 302,
+  TIDE_FOAM: 303,
 } as const;
 export type FloorKind = (typeof Floor)[keyof typeof Floor];
 
-export const WallStyle = { BRICK: 0, HOME: 1, LAUNDRY: 2, SERVICE: 3, GALLERY: 4, RUST: 5 } as const;
+export const WallStyle = { BRICK: 0, HOME: 1, LAUNDRY: 2, SERVICE: 3, GALLERY: 4, RUST: 5, STATION: 6, CLIFF: 7 } as const;
 export type WallStyleId = (typeof WallStyle)[keyof typeof WallStyle];
-export const WALL_STYLE_COUNT = 6;
+export const WALL_STYLE_COUNT = 8;
 
 /** Wall top with an exposed-edge bitmask: 1=N 2=E 4=S 8=W neighbour is not wall. */
 export function wallTopIndex(style: WallStyleId, mask: number): number {
@@ -53,4 +70,4 @@ export function wallFrontIndex(style: WallStyleId, variant: number): number {
   return 32 + style * 32 + 16 + variant;
 }
 
-export const TILESET_ROWS = 2 + WALL_STYLE_COUNT * 2;
+export const TILESET_ROWS = 2 + WALL_STYLE_COUNT * 2 + 2;
