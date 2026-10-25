@@ -133,7 +133,12 @@ export class WorldScene extends Phaser.Scene {
   }
 
   override update(_time: number, delta: number): void {
-    this.onFrame?.(Math.min(delta, 100));
+    try {
+      this.onFrame?.(Math.min(delta, 100));
+    } catch (err) {
+      // Keep the loop alive; surface the error for diagnosis instead of freezing the game.
+      console.error(err);
+    }
   }
 
   setQuality(): void {

@@ -198,9 +198,12 @@ export class Dialogue {
     });
     window.addEventListener('keydown', (e) => {
       if (!this.active) return;
+      // Dialogue owns the keyboard while open: the key that closes it must not also
+      // reach gameplay input (it would immediately re-trigger the interaction).
+      e.stopImmediatePropagation();
       if (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') {
         e.preventDefault();
-        this.advance();
+        if (!e.repeat) this.advance();
       }
     });
   }
