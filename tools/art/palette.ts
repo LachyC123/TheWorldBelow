@@ -1,0 +1,22 @@
+// Role-based palette (docs/design/docs/06): slate/teal structure, amber shelter, mint machinery,
+// off-white player edges, vermilion danger.
+export const P = {
+  ink: '#0b0d14',
+  void: '#07080c',
+  slate: ['#141821', '#1c2230', '#262e40', '#343f57', '#4a5874', '#6a7a98'],
+  teal: ['#0c1f23', '#123036', '#1a434a', '#255b60', '#3a7d7a', '#5fa39a'],
+  amber: ['#4a2812', '#7a4419', '#b06a26', '#e39a3c', '#ffc867', '#fff0b8'],
+  mint: ['#20372f', '#305a4b', '#4f8a72', '#7fc2a4', '#b7ead0', '#e6fff2'],
+  bone: ['#8d877a', '#b8b2a2', '#dcd6c6', '#f4f0e4'],
+  brick: ['#2a1515', '#43201d', '#5e2c25', '#7b3c30', '#985041'],
+  verm: ['#5a120c', '#9a2216', '#d63a22', '#ff6a40', '#ffa57a'],
+  rust: ['#2c1a10', '#4c2b17', '#74401f', '#9c5c2c', '#c8853f'],
+  water: ['#08131f', '#0e2134', '#17354f', '#24527a', '#3d7fae', '#7fbfe0'],
+  ichor: ['#1d2e10', '#365a19', '#5f8f28', '#9ccd4c', '#d6f58a'],
+  skin: ['#4a2a20', '#7a4a36', '#b07656', '#d8a07c'],
+  coat: ['#121a26', '#1b2738', '#273a52', '#38526f', '#4f6f92'],
+  wood: ['#2a1a12', '#40281a', '#5a3a24', '#76502f', '#946a40'],
+  paper: ['#6f6856', '#a39a80', '#cfc5a8', '#ece4cc'],
+  wallpaper: ['#1e2a2a', '#2a3a38', '#37504a', '#4a675d'],
+  tileW: ['#3a4650', '#56646e', '#7a8a92', '#a8b6ba'],
+} as const;

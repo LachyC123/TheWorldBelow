@@ -1,0 +1,48 @@
+{
+  "generatorVersion": 1,
+  "chunkTiles": 32,
+  "tileWorldPixels": 16,
+  "maxGenerationAttempts": 12,
+  "fallbackModuleSetId": "verified_service_loop",
+  "rngStreams": [
+    "topology",
+    "encounters",
+    "decoration",
+    "loot",
+    "audio"
+  ],
+  "novelty": {
+    "noRepeatedLandmarkWithinDistrict": true,
+    "recentEncounterCompositionWindow": 5,
+    "uniqueBossesRepeat": false,
+    "relaxationOrder": [
+      "decoration",
+      "ordinary_encounter_variants"
+    ],
+    "neverRelax": [
+      "critical_path",
+      "unique_content",
+      "story_consistency"
+    ]
+  },
+  "requiredRoles": [
+    "arrival",
+    "orientation",
+    "choice",
+    "reward",
+    "recovery",
+    "return"
+  ],
+  "validation": [
+    "parent_connected",
+    "required_objectives_reachable",
+    "no_self_locked_clue",
+    "spawn_clear",
+    "return_path_exists",
+    "unique_ids",
+    "socket_clearance",
+    "resources_allow_escape"
+  ],
+  "commitPolicy": "validate_then_atomic_manifest_then_attach",
+  "visitedRegionUpdatePolicy": "preserve_materialized_geometry_and_deltas"
+}

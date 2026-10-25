@@ -1,0 +1,35 @@
+{
+  "balanceStatus": "initial_hypothesis",
+  "weapons": [
+    {
+      "id": "service_pistol",
+      "ammoPool": "light_rounds",
+      "magazine": 8,
+      "damagePerProjectile": 20,
+      "projectilesPerShot": 1,
+      "cadenceMs": 250,
+      "reloadMs": 1100,
+      "maxRangePx": 240,
+      "flashPeakMs": 35,
+      "flashDecayMs": 140,
+      "flashRadiusPx": 96,
+      "spriteId": "weapon_service_pistol",
+      "shotCueId": "shot_service_pistol"
+    },
+    {
+      "id": "pump_shotgun",
+      "ammoPool": "shells",
+      "magazine": 4,
+      "damagePerProjectile": 8,
+      "projectilesPerShot": 6,
+      "cadenceMs": 800,
+      "reloadMs": 1600,
+      "maxRangePx": 112,
+      "flashPeakMs": 45,
+      "flashDecayMs": 170,
+      "flashRadiusPx": 128,
+      "spriteId": "weapon_pump_shotgun",
+      "shotCueId": "shot_pump_shotgun"
+    }
+  ]
+}

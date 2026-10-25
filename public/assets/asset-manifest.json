@@ -1,0 +1,235 @@
+{
+  "generatedBy": "tools/art/build.ts",
+  "assets": [
+    {
+      "id": "tiles",
+      "path": "assets/tiles.png",
+      "sourceFile": "tools/art/tiles.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "chars",
+      "path": "assets/chars.png",
+      "sourceFile": "tools/art/chars.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "props",
+      "path": "assets/props.png",
+      "sourceFile": "tools/art/props.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "fx",
+      "path": "assets/fx.png",
+      "sourceFile": "tools/art/fx.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/hand",
+      "path": "assets/ui/hand.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/magazine",
+      "path": "assets/ui/magazine.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/bandage",
+      "path": "assets/ui/bandage.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/map",
+      "path": "assets/ui/map.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/torch",
+      "path": "assets/ui/torch.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/dodge",
+      "path": "assets/ui/dodge.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/padlock",
+      "path": "assets/ui/padlock.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/power",
+      "path": "assets/ui/power.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/wave",
+      "path": "assets/ui/wave.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/ear",
+      "path": "assets/ui/ear.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/pause",
+      "path": "assets/ui/pause.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/pistol",
+      "path": "assets/ui/pistol.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/shotgun",
+      "path": "assets/ui/shotgun.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/journal",
+      "path": "assets/ui/journal.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/gear",
+      "path": "assets/ui/gear.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/heart",
+      "path": "assets/ui/heart.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/fire",
+      "path": "assets/ui/fire.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/swap",
+      "path": "assets/ui/swap.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    },
+    {
+      "id": "ui/close",
+      "path": "assets/ui/close.png",
+      "sourceFile": "tools/art/icons.ts",
+      "source": "Original pixel art authored in this repository (tools/art/*.ts)",
+      "author": "THE WORLD BELOW project",
+      "license": "Project-owned original work; no third-party material",
+      "commercialUse": "yes",
+      "attribution": "not required"
+    }
+  ]
+}

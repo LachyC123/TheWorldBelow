@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#07080c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="THE WORLD BELOW — a pixel-art exploration survival shooter." />
+    <link rel="icon" href="./assets/ui/torch.png" />
+    <title>The World Below</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="game" aria-hidden="true"></div>
+      <div id="fade"></div>
+      <div id="vignette"></div>
+
+      <div id="hud" class="hidden" aria-live="polite">
+        <div id="hud-tl">
+          <div id="hp" role="img" aria-label="Health"><img src="./assets/ui/heart.png" alt="" /><div class="bar"><div class="fill"></div><div class="ghost"></div></div><span class="num"></span></div>
+          <div id="hazard" class="hidden"></div>
+        </div>
+        <div id="place-title"><div class="name"></div><div class="rule"></div></div>
+        <div id="hud-tr">
+          <button id="btn-torch" class="hudbtn" aria-label="Toggle torch"><img src="./assets/ui/torch.png" alt="" /></button>
+          <button id="btn-map" class="hudbtn" aria-label="Map"><img src="./assets/ui/map.png" alt="" /></button>
+          <button id="btn-pause" class="hudbtn" aria-label="Pause"><img src="./assets/ui/pause.png" alt="" /></button>
+        </div>
+        <div id="weapon-panel">
+          <button id="btn-swap" aria-label="Switch weapon">
+            <img class="wicon" src="./assets/ui/pistol.png" alt="" />
+            <span class="wname"></span>
+            <span class="ammo"><b class="mag"></b><i class="res"></i></span>
+            <span class="reload"><span></span></span>
+          </button>
+          <button id="btn-heal" aria-label="Use bandage"><img src="./assets/ui/bandage.png" alt="" /><span class="count"></span><span class="ring"></span></button>
+        </div>
+        <div id="prompt" class="hidden"><img src="./assets/ui/hand.png" alt="" /><span class="verb"></span><span class="label"></span></div>
+        <div id="subtitle" class="hidden"><span class="speaker"></span><span class="text"></span></div>
+        <div id="toasts"></div>
+        <div id="save-indicator"></div>
+        <div id="stats" class="hidden"></div>
+        <div id="sound-cues"></div>
+      </div>
+
+      <div id="touch" class="hidden">
+        <div id="touch-move"></div>
+        <div id="stick-base"><div id="stick-knob"></div></div>
+        <div id="aim-line"></div>
+        <div id="touch-buttons">
+          <button id="btn-fire" aria-label="Fire (hold, drag to aim)"><img src="./assets/ui/fire.png" alt="" /></button>
+          <button id="btn-dodge" aria-label="Dodge"><img src="./assets/ui/dodge.png" alt="" /><span class="cd"></span></button>
+          <button id="btn-interact" aria-label="Interact"><img src="./assets/ui/hand.png" alt="" /></button>
+        </div>
+      </div>
+
+      <div id="dialogue" class="hidden" role="dialog" aria-live="polite">
+        <div class="speaker"></div>
+        <div class="text"></div>
+        <div class="hint">Tap / E to continue</div>
+      </div>
+
+      <div id="screens"></div>
+
+      <div id="rotate" class="hidden">
+        <div class="rotate-card">
+          <div class="phone"></div>
+          <p>Turn your phone sideways to play.</p>
+          <p class="small">The game is paused.</p>
+        </div>
+      </div>
+
+      <div id="loading">
+        <div class="title">THE WORLD BELOW</div>
+        <div class="bar"><div class="fill"></div></div>
+        <div class="status">Loading…</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

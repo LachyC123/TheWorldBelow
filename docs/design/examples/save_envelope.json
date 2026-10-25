@@ -1,0 +1,75 @@
+{
+  "exampleOnly": true,
+  "saveSchemaVersion": 1,
+  "gameBuild": "NOT_IMPLEMENTED",
+  "contentManifestVersion": 1,
+  "worldId": "example_world",
+  "rootSeed": "world-below-slice-001",
+  "generatorVersions": {
+    "base": 1
+  },
+  "slotId": "slot_1",
+  "revision": 1,
+  "createdAt": "2026-10-25T12:00:00Z",
+  "updatedAt": "2026-10-25T12:00:00Z",
+  "playSeconds": 600,
+  "player": {
+    "regionId": "region_gallery_001",
+    "position": {
+      "x": 64,
+      "y": 64
+    },
+    "health": 100,
+    "equippedWeaponIds": [
+      "service_pistol",
+      "pump_shotgun"
+    ],
+    "capabilities": [],
+    "lastRefugeId": "relay_booth"
+  },
+  "regionIndex": [
+    {
+      "id": "region_surface_001",
+      "manifestRecordKey": "manifest:region_surface_001",
+      "deltaRecordKey": "delta:region_surface_001"
+    },
+    {
+      "id": "region_laundry_001",
+      "manifestRecordKey": "manifest:region_laundry_001",
+      "deltaRecordKey": "delta:region_laundry_001"
+    },
+    {
+      "id": "region_service_001",
+      "manifestRecordKey": "manifest:region_service_001",
+      "deltaRecordKey": "delta:region_service_001"
+    },
+    {
+      "id": "region_gallery_001",
+      "manifestRecordKey": "manifest:region_gallery_001",
+      "deltaRecordKey": "delta:region_gallery_001"
+    },
+    {
+      "id": "region_secret_001",
+      "manifestRecordKey": "manifest:region_secret_001",
+      "deltaRecordKey": "delta:region_secret_001"
+    }
+  ],
+  "discoveryLedger": {
+    "observedClues": [
+      "clue_moving_lint"
+    ],
+    "resolvedSecrets": [],
+    "uniqueReservations": [
+      "secret_humming_wall",
+      "boss_pipekeeper",
+      "reward_torch_lens"
+    ]
+  },
+  "storyState": {
+    "storyResolutionCommitted": false,
+    "revealStage": "not_started",
+    "upperHabitatLabelUnlocked": false
+  },
+  "checksums": {},
+  "note": "Associated records and checksums are deliberately omitted; runtime must reject exampleOnly as a real import."
+}

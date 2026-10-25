@@ -1,0 +1,135 @@
+{
+  "packVersion": "1.0",
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "bytes": 3655,
+      "sha256": "d325b5fadfa587e2fe9ece75482f796964e9024ee51e6df208d67cda636535bf"
+    },
+    {
+      "path": "PROGRESS.md",
+      "bytes": 624,
+      "sha256": "8696aff69c3ead456ab6ba386f9f102997dc94aa8597f3979f1a0ad8c0a53eb2"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4023,
+      "sha256": "4c1b53dc4cc1cbe69466ea0d83ce4e7e06eadb72045122c9fd2a497108f959ea"
+    },
+    {
+      "path": "START_HERE_PROMPT.md",
+      "bytes": 2181,
+      "sha256": "0e83d0e46ff4b12002078d55bdbfa44630cab6e69213623bb21defec6ad9476b"
+    },
+    {
+      "path": "THE_WORLD_BELOW_MASTER_PLAN.md",
+      "bytes": 80989,
+      "sha256": "bc02f4d0c79ce691fd684ad96db1583e6d8ad1fd1c330d9b8e46ec052e60175b"
+    },
+    {
+      "path": "docs/01_VISION_AND_SCOPE.md",
+      "bytes": 5062,
+      "sha256": "437ca6f7d3b53ac692fc5e939b18f7f61a1ada27206a22478ff526824d311601"
+    },
+    {
+      "path": "docs/02_WORLD_AND_DISCOVERY.md",
+      "bytes": 7866,
+      "sha256": "36d4f876e4efa47f737f3cb132d77f21b77c870c4bff0c970f80e09918b7b9eb"
+    },
+    {
+      "path": "docs/03_STORY_AND_REVEAL.md",
+      "bytes": 7067,
+      "sha256": "726a085c09009190794403e8b36d10c19aa0031e77591b7e67cf131d6399bf03"
+    },
+    {
+      "path": "docs/04_COMBAT_AND_PROGRESSION.md",
+      "bytes": 7738,
+      "sha256": "17820bec6d20eda22179c19666937eb66d64d7e089078dc5943ddcf66003de6f"
+    },
+    {
+      "path": "docs/05_IPHONE_CONTROLS_AND_UI.md",
+      "bytes": 7017,
+      "sha256": "b47f78d4ccb2d13d8e84de30fdcc1f7f0f22b6c79effc9002bd21f1af22bb323"
+    },
+    {
+      "path": "docs/06_ART_AUDIO_AND_EFFECTS.md",
+      "bytes": 8797,
+      "sha256": "3618391326eaded7dcb4983404e260e93dc0860df0fb5de1661a204b8bbe7d37"
+    },
+    {
+      "path": "docs/07_BROWSER_ARCHITECTURE.md",
+      "bytes": 8909,
+      "sha256": "2313d99ff4bb45c199f948ca07853744250923004b6cf063d50c95f44acd5abb"
+    },
+    {
+      "path": "docs/08_CONTENT_BIBLE.md",
+      "bytes": 7861,
+      "sha256": "39748ae1b0f8d3d31513530584761fad400d2fcead8ef60aa47041f1ba69d633"
+    },
+    {
+      "path": "docs/09_MILESTONES_AND_GITHUB.md",
+      "bytes": 7436,
+      "sha256": "e5c9fc495f4b76ca5c8c11a0d59019e3b5df5927b5cb43b25ed786a9647803cd"
+    },
+    {
+      "path": "docs/10_QA_AND_ACCEPTANCE.md",
+      "bytes": 6165,
+      "sha256": "cf2b606af3de0897198a4164bad90aeac8f99fb6d72cf9f5cdc42e968e9fb804"
+    },
+    {
+      "path": "docs/11_CONTENT_AUTHORING_AND_LIVE_GROWTH.md",
+      "bytes": 4492,
+      "sha256": "96780f8bff27e9ef84cd255eb664c7221a73f55a37b82c4b822f137e39671ce8"
+    },
+    {
+      "path": "docs/12_TECHNICAL_SOURCES.md",
+      "bytes": 2275,
+      "sha256": "e2ba522004306d5735709212a323bfde60264638f7c10241431fcaf943fff984"
+    },
+    {
+      "path": "examples/README.md",
+      "bytes": 1008,
+      "sha256": "e4b2ea8797cbd33579c3156f33a3e4aec1d487011540cc7f31644d442b47dee0"
+    },
+    {
+      "path": "examples/contracts.ts",
+      "bytes": 2785,
+      "sha256": "7efa718d7a43ac273d2abc10ad851b458c5a3f24c4bad4e011ffd20108e193e0"
+    },
+    {
+      "path": "examples/generation_policy.json",
+      "bytes": 1065,
+      "sha256": "bdffd02189dd533e53f77cb06f126cc8da3b267d252a65b06f0eb5da0e8cba00"
+    },
+    {
+      "path": "examples/save_envelope.json",
+      "bytes": 1936,
+      "sha256": "3e7c85603586374c3955a9c3fee8eb8861b2f171d67568709c6327fe610d94de"
+    },
+    {
+      "path": "examples/secret_chain.json",
+      "bytes": 1617,
+      "sha256": "62f9faeb509d7150bbdaa1d5023ebc7d5649465939127f7cda88131d750522c6"
+    },
+    {
+      "path": "examples/slice_world.json",
+      "bytes": 2361,
+      "sha256": "a30d95c508a359e6a55d45c8eee40af2d6397bf1af2052bce3f2d1e34191e924"
+    },
+    {
+      "path": "examples/weapons.json",
+      "bytes": 847,
+      "sha256": "6c7a0fd62380e80c0cf4cb394dc29b3d04171f37e3fabd8ec0eb4a359768ec90"
+    },
+    {
+      "path": "templates/CONTENT_REVIEW.md",
+      "bytes": 553,
+      "sha256": "bf1772233fd758e7530407360d722d7ec0440f6abb3cf624761606f4475a5850"
+    },
+    {
+      "path": "templates/MILESTONE_REVIEW.md",
+      "bytes": 405,
+      "sha256": "1ea2d11ff21fc7f59a4fddb115c6e8764389b5d0ab8b5cdc8788eab1d33b5760"
+    }
+  ]
+}

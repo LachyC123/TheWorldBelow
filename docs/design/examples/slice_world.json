@@ -1,0 +1,100 @@
+{
+  "formatVersion": 1,
+  "worldId": "example_world",
+  "rootSeed": "world-below-slice-001",
+  "regions": [
+    {
+      "id": "region_surface_001",
+      "biomeId": "surface_town",
+      "authored": true,
+      "role": "home_and_orientation",
+      "connections": [
+        "edge_street_laundry",
+        "edge_lift_return"
+      ]
+    },
+    {
+      "id": "region_laundry_001",
+      "biomeId": "surface_town",
+      "authored": true,
+      "role": "ordinary_place_hidden_descent",
+      "connections": [
+        "edge_street_laundry",
+        "edge_laundry_service"
+      ]
+    },
+    {
+      "id": "region_service_001",
+      "biomeId": "service_veins",
+      "authored": true,
+      "role": "tutorial_threat_and_refuge",
+      "connections": [
+        "edge_laundry_service",
+        "edge_service_gallery"
+      ]
+    },
+    {
+      "id": "region_gallery_001",
+      "biomeId": "service_veins",
+      "authored": true,
+      "role": "discovery_and_relay",
+      "connections": [
+        "edge_service_gallery",
+        "edge_gallery_secret",
+        "edge_lift_return"
+      ]
+    },
+    {
+      "id": "region_secret_001",
+      "biomeId": "service_veins",
+      "authored": true,
+      "role": "optional_pipekeeper",
+      "connections": [
+        "edge_gallery_secret"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_street_laundry",
+      "a": "region_surface_001",
+      "b": "region_laundry_001",
+      "gate": null
+    },
+    {
+      "id": "edge_laundry_service",
+      "a": "region_laundry_001",
+      "b": "region_service_001",
+      "gate": "laundry_hatch_open"
+    },
+    {
+      "id": "edge_service_gallery",
+      "a": "region_service_001",
+      "b": "region_gallery_001",
+      "gate": null
+    },
+    {
+      "id": "edge_gallery_secret",
+      "a": "region_gallery_001",
+      "b": "region_secret_001",
+      "gate": "maintenance_panel_open"
+    },
+    {
+      "id": "edge_lift_return",
+      "a": "region_gallery_001",
+      "b": "region_surface_001",
+      "gate": "return_lift_powered"
+    }
+  ],
+  "guaranteedFlagsObtainable": [
+    "laundry_hatch_open",
+    "maintenance_panel_open",
+    "return_lift_powered"
+  ],
+  "uniqueReservations": [
+    "secret_humming_wall",
+    "boss_pipekeeper",
+    "reward_torch_lens"
+  ],
+  "note": "Graph example only; gate acquisition and geometry must be authored and validated in the game."
+}
