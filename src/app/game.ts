@@ -1,7 +1,9 @@
 // Application controller: lifecycle, fixed-step loop, region transitions, story actions,
 // death/respawn, checkpoints and menus. Owns GameData; the World owns only its region.
 import type Phaser from 'phaser';
-import { getRegion, REGION_DEFS } from '../content/registry.ts';
+import { getRegion, findRegion } from '../content/registry.ts';
+import { Frontier } from '../world/frontier.ts';
+import { CURIO_BY_ID, UPGRADE_BY_ID } from '../content/discoveries.ts';
 import { DIALOGUE, JOURNAL, type Line } from '../content/story.ts';
 import { F, REGIONS } from '../content/ids.ts';
 import { TILE } from '../content/tiles.ts';
@@ -51,6 +53,7 @@ export class GameApp {
   private readonly settings: Settings;
   private readonly audio: AudioEngine;
   private readonly repo = new SaveRepository();
+  private readonly frontier = new Frontier();
   private readonly canvasEl: HTMLElement;
 
   constructor(game: Phaser.Game, scene: WorldScene, settings: Settings, audio: AudioEngine) {
@@ -94,6 +97,7 @@ export class GameApp {
     this.screens.clear();
     // attract view: the inherited home, rain at the window, intercom blinking
     const attract = newGameData();
+    this.frontier.activate(attract);
     this.enterWorld(attract, REGIONS.home, { x: 3 * TILE + 8, y: 3 * TILE + 12, face: 'up' }, false);
     this.cameraFocus = { x: 6 * TILE, y: 4 * TILE };
     const slots = await this.repo.list();
@@ -196,6 +200,7 @@ export class GameApp {
     this.slotId = slotId;
     this.lastEnv = null;
     this.data = newGameData();
+    this.frontier.activate(this.data);
     void this.repo.requestPersistence();
     const def = getRegion(REGIONS.home);
     const e = def.entries.start!;
@@ -217,6 +222,7 @@ export class GameApp {
     this.slotId = slotId;
     this.lastEnv = r.envelope;
     this.data = structuredClone(r.envelope.data);
+    this.frontier.activate(this.data);
     void this.repo.requestPersistence();
     this.beginPlay();
     const def = getRegion(this.data.regionId);
@@ -254,7 +260,7 @@ export class GameApp {
     if (!this.slotId || this.readOnly || !this.world || this.world.data !== this.data) return false;
     if (!this.world.player.alive || this.data.hp <= 0) return false;
     this.flushWorld();
-    const ref = REGION_DEFS[this.data.lastRefuge.regionId];
+    const ref = findRegion(this.data.lastRefuge.regionId);
     const env = makeEnvelope(this.slotId, this.data, this.lastEnv, { regionName: this.world.def.name, refugeName: REFUGE_NAMES[this.data.lastRefuge.id] ?? ref?.name ?? 'Unknown' });
     try {
       await this.repo.save(env);
@@ -340,6 +346,7 @@ export class GameApp {
         this.audio.play('discover');
       }
     } else if (announce && data === this.data) this.hud.placeTitle(def.name);
+    if (data === this.data && def.id.startsWith('gen_')) this.tip('tip_frontier', DIALOGUE.frontier_first![0]!.text);
   }
 
   private entrySpawn(regionId: string, entry: string): { x: number; y: number; face: Face } {
@@ -349,7 +356,7 @@ export class GameApp {
     return { x: e.tx * TILE + 8, y: e.ty * TILE + 12, face: e.face };
   }
 
-  private transition(regionId: string, entry: string, slow = false): void {
+  private transition(target: string, entry: string, slow = false): void {
     if (this.mode === 'transition') return;
     this.mode = 'transition';
     this.input.resetAll();
@@ -357,14 +364,36 @@ export class GameApp {
     fade.classList.add('on');
     if (slow) this.audio.play('lift');
     else this.audio.play('door');
-    window.setTimeout(() => {
-      this.enterWorld(this.data, regionId, this.entrySpawn(regionId, entry), true);
-      void this.save('region');
-      window.setTimeout(() => {
+    const started = performance.now();
+    const minWait = slow ? 1100 : 280;
+    const go = async (): Promise<void> => {
+      let regionId = target;
+      try {
+        // the frontier: generate (in a worker) and commit a district the first time it is entered
+        if (target.startsWith('gen:')) regionId = await this.frontier.resolve(this.data, target.slice(4));
+        else if (target.startsWith('manhole:')) {
+          const r = this.data.world.manholes[target.slice(8)];
+          if (!r) throw new Error('manhole leads nowhere yet');
+          regionId = r;
+        }
+      } catch (err) {
+        console.error(err);
         fade.classList.remove('on');
-        if (this.mode === 'transition') this.mode = 'play';
-      }, slow ? 500 : 120);
-    }, slow ? 1100 : 280);
+        if (this.world) this.world.cancelExit();
+        this.mode = 'play';
+        this.hud.toast('The way ahead is blocked. Try again.', true);
+        return;
+      }
+      window.setTimeout(() => {
+        this.enterWorld(this.data, regionId, this.entrySpawn(regionId, entry), true);
+        void this.save('region');
+        window.setTimeout(() => {
+          fade.classList.remove('on');
+          if (this.mode === 'transition') this.mode = 'play';
+        }, slow ? 500 : 120);
+      }, Math.max(0, minWait - (performance.now() - started)));
+    };
+    void go();
   }
 
   // ------------------------------------------------------------------ main loop
@@ -454,9 +483,13 @@ export class GameApp {
     for (const ev of events) {
       switch (ev.type) {
         case 'ActionRequested':
-          void this.runAction(ev.action);
+          void this.runAction(ev.action, ev.entityId);
           break;
         case 'ExitRequested': {
+          if (ev.region === REGIONS.street && ev.entry.startsWith('manhole_') && !this.data.flags[`${ev.entry}_open`]) {
+            this.data.flags[`${ev.entry}_open`] = true;
+            this.hud.toast('You unbolt the manhole from below: a new way down from the street.');
+          }
           const lift = ev.region === REGIONS.street && w.def.id === REGIONS.gallery || ev.region === REGIONS.gallery && w.def.id === REGIONS.street;
           this.transition(ev.region, ev.entry, lift);
           break;
@@ -465,7 +498,7 @@ export class GameApp {
           this.sayLocked(ev.textId);
           break;
         case 'PickedUp':
-          this.onPickup(ev.item, ev.amount);
+          this.onPickup(ev.item, ev.amount, ev.ref);
           break;
         case 'CacheRecovered':
           this.hud.toast('Recovered your dropped supplies.');
@@ -482,6 +515,7 @@ export class GameApp {
           if (this.settings.visualSoundCues) this.offscreenCue(ev.x, ev.y);
           break;
         case 'EnemyAlerted':
+          if (ev.enemy === 'drone') this.tip('tip_drone', 'A Watchman Drone sweeps its searchlight. Stay out of the beam, or break its line of sight before it locks on and fires.');
           if (ev.enemy === 'leech') this.tip('tip_leech', `Lamp Leeches hunt steady light. Switch the torch off (${this.input.mode === 'touch' ? 'torch button' : 'F'}) or startle them with a shot's flash.`);
           if (ev.enemy === 'keeper') {
             this.hud.placeTitle('The Pipekeeper', true);
@@ -557,10 +591,51 @@ export class GameApp {
     this.world?.setFlag(id, v);
   }
 
-  private async runAction(action: string): Promise<void> {
+  private async runAction(action: string, entityId = ''): Promise<void> {
     const w = this.world!;
     const d = this.data;
     if (action.startsWith('say:')) return this.talk(action.slice(4));
+    if (action.startsWith('open_gate:')) {
+      const flag = action.slice(10);
+      if (d.flags[flag]) return;
+      const junction = w.def.entities.some((e) => e.id === entityId && e.kind === 'interact' && e.label === 'Live junction');
+      this.setFlag(flag);
+      d.finds.secrets++;
+      this.audio.play(junction ? 'keeper_stun' : 'hatch');
+      this.scene.sparkle(w.player.x, w.player.y - 10, junction ? 0xb7ead0 : 0xdcd6c6, 22);
+      this.scene.addShake(junction ? 2 : 1.5);
+      this.hud.subtitle('', junction ? 'You wrench the junction loose. The arc dies with a snap.' : 'The loose bricks come away. Cold air rushes out of a hidden room.', 4);
+      void this.save('discovery');
+      return;
+    }
+    if (action.startsWith('restore_lamp:')) {
+      this.audio.play('lamp_on');
+      this.setFlag(action.slice(13));
+      this.scene.sparkle(w.player.x, w.player.y - 16, 0xffc867, 20);
+      if (w.def.refuge) d.lastRefuge = { regionId: w.def.id, entry: w.def.refuge.entry, id: w.def.refuge.id };
+      this.hud.subtitle('', 'The lamp catches. A refuge: rest here to recover, restock and save.', 4.5);
+      void this.save('refuge');
+      return;
+    }
+    if (action.startsWith('survey:')) {
+      this.setFlag(action.slice(7));
+      w.explored.fill(1);
+      this.audio.play('discover');
+      this.hud.subtitle('Survey map', `You copy every room and exit of ${w.def.name} onto your map.`, 4.5);
+      this.hud.toast('Map updated');
+      void this.save('discovery');
+      return;
+    }
+    if (action.startsWith('landmark:')) {
+      const name = action.slice(9);
+      this.hud.placeTitle(name);
+      this.audio.play('discover');
+      if (!d.finds.landmarks.includes(name)) {
+        d.finds.landmarks.push(name);
+        this.hud.toast(`Landmark discovered: ${name}`);
+      }
+      return;
+    }
     if (action.startsWith('title:')) {
       this.hud.placeTitle(action.slice(6));
       this.audio.play('discover');
@@ -654,6 +729,14 @@ export class GameApp {
         this.setFlag(F.pipekeeperWheelClosed);
         this.hud.subtitle('', DIALOGUE.wheel![0]!.text, 4);
         return;
+      case 'open_pressure_route':
+        this.audio.play('fan_on');
+        this.setFlag(F.pressureRouteOpen);
+        this.scene.addShake(2);
+        this.hud.subtitle('', DIALOGUE.pressure_open![0]!.text, 4.5);
+        this.hud.toast('Shortcut opened: Pipeworks ↔ Pumping Gallery');
+        void this.save('discovery');
+        return;
       case 'tip_dark':
         this.hud.subtitle('', DIALOGUE.dark_tip![0]!.text, 6);
         return;
@@ -662,9 +745,31 @@ export class GameApp {
     }
   }
 
-  private onPickup(item: string, amount: number): void {
+  private onPickup(item: string, amount: number, ref?: string): void {
     const d = this.data;
     switch (item) {
+      case 'curio': {
+        const c = ref ? CURIO_BY_ID[ref] : undefined;
+        if (!c) break;
+        this.audio.play('discover');
+        this.hud.subtitle(c.title, c.text, 8);
+        this.hud.toast(`Found: ${c.title} · ${d.finds.curios.length} curios`);
+        void this.save('discovery');
+        break;
+      }
+      case 'upgrade': {
+        const u = ref ? UPGRADE_BY_ID[ref] : undefined;
+        if (!u) break;
+        this.audio.play('relay_tones');
+        this.hud.subtitle(u.title, u.text, 5);
+        this.hud.toast(`Upgrade: ${u.title}`);
+        void this.save('discovery');
+        break;
+      }
+      case 'insulated_gloves':
+        void this.talk('gloves');
+        void this.save('discovery');
+        break;
       case 'service_pistol':
         this.setFlag(F.hasPistol);
         void this.talk('pistol').then(() =>
@@ -711,7 +816,7 @@ export class GameApp {
     d.bandages = Math.max(d.bandages, BANDAGE_BASELINE);
     // Unresolved ordinary encounters may return after rest; unique ones never do.
     for (const [rid, delta] of Object.entries(d.regions)) {
-      const def = REGION_DEFS[rid];
+      const def = findRegion(rid);
       if (!def) continue;
       delta.defeated = delta.defeated.filter((id) => {
         const e = def.entities.find((x) => x.id === id);
@@ -779,7 +884,7 @@ export class GameApp {
     if (!f[F.intercomAnswered]) return 'The intercom is buzzing.';
     if (!f[F.relayReconnected]) return 'Lead: reconnect the relay beneath the laundrette. Follow the amber cable markings.';
     if (!f[F.sliceComplete]) return 'Lead: return home and answer the intercom (the service lift now reaches the street).';
-    return 'The line is alive. Explore freely — the humming wall may still hold secrets.';
+    return 'The line is alive. The tunnels branch everywhere: the storm drain, the Cistern Hall’s south passage, the gallery’s far exits. Follow whatever calls to you.';
   }
 
   togglePause(): void {

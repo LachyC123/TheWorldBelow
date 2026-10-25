@@ -2,7 +2,7 @@
 
 A pixel-art exploration survival shooter for the browser, designed first for **landscape iPhone Safari**, with keyboard and mouse supported too. Beautiful mystery above, frightening depths below, and muzzle flashes that light up the room you're in.
 
-**Status: first playable slice (milestones M0–M2).** You can play from your inherited home, down a rainy street, through a laundrette, into the service tunnels and the pumping gallery, then back. There's one optional secret and an optional mini-boss. See [PROGRESS.md](PROGRESS.md) for what's verified and what isn't.
+**Status: M0–M3.** An authored opening slice (home, rainy street, laundrette, service tunnels, pumping gallery, the Pipeworks mini-boss) opens onto a **persistent generated frontier**. Storm drains, manholes and tunnel exits lead into seeded districts with secrets, curios, upgrades, landmarks, refuges and shortcuts. Every district is saved permanently once discovered. See [PROGRESS.md](PROGRESS.md) for what's verified and what isn't.
 
 ![Muzzle flash revealing the Cistern Hall](docs/screenshots/cistern_muzzle_flash.png)
 
@@ -43,7 +43,7 @@ Settings include: aim assist, left-handed layout, control and text size, reduced
 | `npm run test` | Vitest: simulation, saves, light visibility, content validation |
 | `npm run validate:content` | Content validation only: IDs, references, reachability, fair secrets, atlas frames |
 | `npm run art` | Regenerate all pixel art from `tools/art` into `public/assets` |
-| `npm run smoke [-- URL]` | Playwright browser run of the whole slice (36 checks; screenshots go to `captures/smoke/`) |
+| `npm run smoke [-- URL]` | Playwright browser run of the slice plus the generated frontier (44 checks; screenshots go to `captures/smoke/`) |
 
 ## Repository map
 

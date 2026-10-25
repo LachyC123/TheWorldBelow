@@ -3,7 +3,8 @@
 import type { Settings } from '../app/settings.ts';
 import type { SlotSummary } from '../save/repository.ts';
 import type { GameData } from '../sim/gameData.ts';
-import { REGION_DEFS } from '../content/registry.ts';
+import { findRegion } from '../content/registry.ts';
+import { CURIO_BY_ID, UPGRADE_BY_ID } from '../content/discoveries.ts';
 import { JOURNAL } from '../content/story.ts';
 import { TILE } from '../content/tiles.ts';
 import { Cell, Grid } from '../sim/grid.ts';
@@ -242,7 +243,15 @@ export class Screens {
       const name = id === 'pump_shotgun' ? 'Pump Shotgun' : 'Service Pistol';
       return item(`${name}${data.weapons[data.activeWeapon] === id ? ' (equipped)' : ''}`, `${DESC[id] ?? ''} Loaded ${data.mag[id] ?? 0}, carrying ${res}.`);
     });
-    const caps = data.capabilities.map((c) => (c === 'torch_lens' ? item('Torch Lens', 'Ground glass from the Pipekeeper’s lamp: your torch reaches further and wider.') : item(c, '')));
+    const TOOL: Record<string, [string, string]> = {
+      torch_lens: ['Torch Lens', 'Ground glass from the Pipekeeper’s lamp: your torch reaches further and wider.'],
+      insulated_gloves: ['Insulated gloves', 'Lets you disconnect live junctions that seal off rooms.'],
+    };
+    const caps = data.capabilities.filter((c) => TOOL[c]).map((c) => item(TOOL[c]![0], TOOL[c]![1]));
+    const mods = data.finds.upgrades.map((u) => UPGRADE_BY_ID[u]).filter((u): u is NonNullable<typeof u> => !!u);
+    const tonics = mods.filter((u) => u.kind === 'tonic').length;
+    if (tonics) caps.push(item(`Steadying tonics ×${tonics}`, `Maximum health raised to ${data.maxHp}.`));
+    for (const u of mods.filter((x) => x.kind === 'mod')) caps.push(item(u.title, u.text));
     const card = h(
       'div',
       { class: 'card wide' },
@@ -250,7 +259,7 @@ export class Screens {
       h('div', { class: 'journal-section' }, h('h3', {}, 'Weapons'), ...(weapons.length ? weapons : [h('p', {}, 'Unarmed.')])),
       h('div', { class: 'journal-section' }, h('h3', {}, 'Supplies'), item('Bandages', `${data.bandages} carried. Heals 40 over 1.2 s; dodging or taking damage interrupts it.`), item('Torch', `${data.torchOn ? 'On' : 'Off'}. Never runs out. Lamp Leeches are drawn to a steady beam.`)),
       caps.length ? h('div', { class: 'journal-section' }, h('h3', {}, 'Tools'), ...caps) : null,
-      data.cache ? h('p', { class: 'meta' }, `Dropped supplies waiting in ${REGION_DEFS[data.cache.regionId]?.name ?? 'the dark'} (marked red on the map).`) : null,
+      data.cache ? h('p', { class: 'meta' }, `Dropped supplies waiting in ${findRegion(data.cache.regionId)?.name ?? 'the dark'} (marked red on the map).`) : null,
       h('div', { class: 'btns row', style: 'margin-top:12px' }, btn('Back', onBack, 'primary')),
     );
     this.push(this.screen(card));
@@ -272,6 +281,7 @@ export class Screens {
       section('Current leads', 'lead'),
       section('Observations', 'clue'),
       section('Resolved', 'resolved'),
+      findsSection(data),
       h('div', { class: 'btns row', style: 'margin-top:12px' }, btn('Back', onBack, 'primary')),
     );
     this.push(this.screen(card));
@@ -285,7 +295,7 @@ export class Screens {
     const tabs = h('div', { class: 'maptabs' });
     const view = { scale: 0, ox: 0, oy: 0 };
     const draw = (): void => {
-      const def = REGION_DEFS[region];
+      const def = findRegion(region);
       if (!def) return;
       const grid = new Grid(def);
       const rect = wrap.getBoundingClientRect();
@@ -307,6 +317,16 @@ export class Screens {
         for (let x = 0; x < grid.w; x++) {
           if (!bits[y * grid.w + x]) continue;
           const c = grid.cells[y * grid.w + x];
+          // draw walls only where they bound known open ground, so the map reads as rooms, not mass
+          if (c === Cell.Wall) {
+            let edge = false;
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]] as const) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && ny >= 0 && nx < grid.w && ny < grid.h && grid.cells[ny * grid.w + nx] !== Cell.Wall && bits[ny * grid.w + nx]) edge = true;
+            }
+            if (!edge) continue;
+          }
           ctx.fillStyle = c === Cell.Wall ? '#5a6680' : c === Cell.Water ? '#1d3a5a' : '#262e40';
           ctx.fillRect(view.ox + x * s, view.oy + y * s, s, s);
         }
@@ -315,8 +335,23 @@ export class Screens {
         ctx.fillStyle = col;
         ctx.fillRect(view.ox + tx * s - (s * (size - 1)) / 2, view.oy + ty * s - (s * (size - 1)) / 2, s * size, s * size);
       };
+      const t = performance.now() / 1000;
       for (const e of def.entities) {
-        if (e.kind === 'exit') mark(e.tx, e.ty, '#e39a3c');
+        if (e.kind === 'exit') {
+          const tr = e.target.region;
+          const unexplored = (tr.startsWith('gen:') && !data.world.sockets[tr.slice(4)]) || (!tr.startsWith('gen:') && !tr.startsWith('manhole:') && !data.visitedRegions.includes(tr));
+          if (unexplored && bits[e.ty * grid.w + e.tx]) {
+            // unexplored ways onward pulse on the map: the pull of the frontier
+            ctx.strokeStyle = `rgba(255,200,103,${0.55 + Math.sin(t * 4) * 0.35})`;
+            ctx.lineWidth = Math.max(1, s * 0.4);
+            ctx.beginPath();
+            ctx.arc(view.ox + (e.tx + 0.5) * s, view.oy + (e.ty + 0.5) * s, s * 1.4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#ffc867';
+            ctx.font = `${Math.max(8, s * 1.6)}px Pixelify Sans, monospace`;
+            ctx.fillText('?', view.ox + (e.tx + 0.2) * s, view.oy + (e.ty + 0.9) * s);
+          } else mark(e.tx, e.ty, '#e39a3c');
+        }
         if (e.kind === 'interact' && e.action === 'rest_refuge') mark(e.tx, e.ty, '#ffc867', 1.6);
       }
       if (data.cache && data.cache.regionId === region) mark(Math.floor(data.cache.x / TILE), Math.floor(data.cache.y / TILE), '#ff6a40', 1.6);
@@ -334,7 +369,7 @@ export class Screens {
     };
     const visited = [currentRegion, ...data.visitedRegions.filter((r) => r !== currentRegion)];
     for (const r of visited) {
-      const b = btn(REGION_DEFS[r]?.name ?? r, () => {
+      const b = btn(findRegion(r)?.name ?? r, () => {
         region = r;
         view.scale = 0;
         for (const c of tabs.children) c.classList.remove('on');
@@ -384,11 +419,16 @@ export class Screens {
       h('h2', {}, 'Map'),
       tabs,
       wrap,
-      h('p', { class: 'meta' }, 'Only places you have seen are drawn. Amber: doors and routes · gold: refuges · red: dropped supplies.'),
+      h('p', { class: 'meta' }, `Only places you have seen are drawn. Pulsing ? marks a way onward you have not taken. Gold: refuges · red: dropped supplies. Places charted: ${data.visitedRegions.length}.`),
       h('div', { class: 'btns row' }, btn('Back', onBack, 'primary'), btn('Centre', () => { view.scale = 0; draw(); })),
     );
     this.push(this.screen(card));
-    requestAnimationFrame(draw);
+    const tick = (): void => {
+      if (!card.isConnected) return;
+      draw();
+      window.setTimeout(() => requestAnimationFrame(tick), 120);
+    };
+    requestAnimationFrame(tick);
   }
 
   // ---------------------------------------------------------------- death
@@ -404,6 +444,23 @@ export class Screens {
     );
     this.push(this.screen(card));
   }
+}
+
+function findsSection(data: GameData): HTMLElement | null {
+  const f = data.finds;
+  if (!f.curios.length && !f.landmarks.length && !f.upgrades.length && !f.secrets) return null;
+  const items: HTMLElement[] = [];
+  for (const id of f.curios) {
+    const c = CURIO_BY_ID[id];
+    if (c) items.push(h('div', { class: 'journal-entry clue' }, h('b', {}, c.title), h('span', {}, c.text)));
+  }
+  return h(
+    'div',
+    { class: 'journal-section' },
+    h('h3', {}, `Finds · ${f.curios.length} curios · ${f.landmarks.length} landmarks · ${f.secrets} hidden ways opened`),
+    f.landmarks.length ? h('p', { class: 'meta' }, `Landmarks: ${f.landmarks.join(', ')}.`) : null,
+    ...items,
+  );
 }
 
 function decode(b64: string, n: number): Uint8Array {

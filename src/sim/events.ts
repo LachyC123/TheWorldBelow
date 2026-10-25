@@ -31,7 +31,9 @@ export type SimEvent =
   | { type: 'BossStunned'; id: string; x: number; y: number }
   | { type: 'VentTelegraph'; group: 'a' | 'b' }
   | { type: 'VentBurst'; x: number; y: number }
-  | { type: 'PickedUp'; id: string; item: ItemId; amount: number; x: number; y: number }
+  | { type: 'PickedUp'; id: string; item: ItemId; amount: number; x: number; y: number; ref?: string }
+  | { type: 'BoltFired'; x: number; y: number; angle: number }
+  | { type: 'MaxHealthUp'; maxHp: number }
   | { type: 'TargetKnocked'; id: string; x: number; y: number }
   | { type: 'ActionRequested'; action: string; entityId: string }
   | { type: 'Locked'; textId: string }

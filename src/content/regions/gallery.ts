@@ -16,7 +16,9 @@ const m = new MapBuilder(60, 30)
   .carve(6, 13, 4, 2, 'z')
   .carve(24, 2, 14, 2, 'b')
   .hrun(6, 46, 14, 'h')
-  .carve(29, 9, 2, 2, '#');
+  .carve(29, 9, 2, 2, '#')
+  .carve(54, 16, 6, 2, 'h')
+  .carve(40, 26, 2, 4, ',');
 
 const relayLamps: StaticLight[] = [12, 20, 28, 36, 44].map((x, i) => ({
   id: `gallery_relay_lamp_${i}`,
@@ -69,6 +71,12 @@ const entities: EntityDef[] = [
   { kind: 'pickup', id: 'pickup_gallery_shells_b', tx: 50, ty: 24, item: 'shells', amount: 4 },
   { kind: 'prop', id: 'gallery_crate_a', tx: 51, ty: 23, frame: 'crate', solid: { w: 1, h: 1 } },
   { kind: 'prop', id: 'gallery_crate_b', tx: 52, ty: 23, frame: 'crate', solid: { w: 1, h: 1 } },
+  // Frontier: the gallery opens onto territory nobody has mapped
+  { kind: 'exit', id: 'gallery_east_frontier', tx: 59, ty: 16, w: 1, h: 2, auto: true, target: { region: 'gen:gallery_east', entry: 'from_parent' } },
+  { kind: 'exit', id: 'gallery_south_frontier', tx: 40, ty: 29, w: 2, h: 1, auto: true, target: { region: 'gen:gallery_south', entry: 'from_parent' } },
+  // Pressure door: the shortcut from the Pipeworks, opened from the far side
+  { kind: 'prop', id: 'gallery_pressure_door', tx: 36, ty: 5, frame: 'door_metal_closed', wall: true, alt: { when: flag(F.pressureRouteOpen), frame: 'door_metal_open' } },
+  { kind: 'exit', id: 'gallery_pressure_exit', tx: 36, ty: 6, w: 1, h: 1, auto: false, verb: 'Enter', label: 'Pressure door', gate: flag(F.pressureRouteOpen), lockedText: 'pressure_locked', target: { region: REGIONS.secret, entry: 'pressure' } },
   // Threats
   { kind: 'enemy', id: 'gallery_skitter_a', tx: 26, ty: 9, type: 'skitter', respawns: true },
   { kind: 'enemy', id: 'gallery_skitter_b', tx: 38, ty: 17, type: 'skitter', respawns: true },
@@ -99,6 +107,9 @@ export const gallery: RegionDef = {
     west: { tx: 1, ty: 13, face: 'right' },
     lift: { tx: 51, ty: 7, face: 'down' },
     panel: { tx: 11, ty: 7, face: 'down' },
+    east: { tx: 57, ty: 16, face: 'left' },
+    south: { tx: 40, ty: 25, face: 'up' },
+    pressure: { tx: 36, ty: 7, face: 'down' },
   },
   discoverTitle: 'Pumping Gallery',
   lights: [
@@ -112,6 +123,8 @@ export const gallery: RegionDef = {
     { id: 'gallery_south', x: px(26), y: px(23), radius: 70, color: [255, 190, 120], intensity: 0.6, flicker: 0.15 },
     { id: 'gallery_lift_light', x: px(51), y: px(6), radius: 60, color: [255, 210, 140], intensity: 0.8, when: flag(F.returnLiftPowered) },
     ...relayLamps,
+    { id: 'gallery_east_mouth', x: px(56), y: px(16), radius: 56, color: [150, 255, 220], intensity: 0.5, flicker: 0.15 },
+    { id: 'gallery_south_mouth', x: px(40), y: px(26), radius: 50, color: [140, 190, 255], intensity: 0.5 },
   ],
   emitters: [
     { id: 'humming_wall_lint', type: 'lint', tx: 6, ty: 6, w: 10, h: 6, toX: px(11), toY: 5 * 16 + 8, rate: 3, boost: { when: flag(F.galleryFanPowered), factor: 5 } },

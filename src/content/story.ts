@@ -43,6 +43,14 @@ export const DIALOGUE: Record<string, Line[]> = {
   street_barrier: [{ speaker: 'Notice', text: 'ROAD CLOSED — FLOODING BELOW. By order of the Bracken Water Board. (The water board closed in 1987.)' }],
   panel_locked: [{ speaker: '', text: 'The panel is sucked flat against the wall, as if something behind it is breathing in. It will not budge.' }],
   dark_tip: [{ speaker: '', text: 'Too dark to see the far walls. Your torch helps; a gunshot’s flash lights the whole chamber for an instant.' }],
+  drain_unarmed: [{ speaker: '', text: 'The storm drain drops into roaring dark. Not without something to defend yourself.' }],
+  manhole_locked: [{ speaker: '', text: 'Bolted shut from below. Someone down there could open it.' }],
+  junction_locked: [{ speaker: '', text: 'A live junction crackles across the opening. Bare hands would be a mistake. Insulated gloves might do it.' }],
+  pressure_locked: [{ speaker: '', text: 'A pressure door, seized solid. Whatever works it is on the other side.' }],
+  pressure_keeper: [{ speaker: '', text: 'Seized valves, caked in old grease. The Pipekeeper guards the only tools that could shift them.' }],
+  pressure_open: [{ speaker: '', text: 'The valves give with a groan. Far off, a pressure door booms open into the gallery.' }],
+  gloves: [{ speaker: 'Insulated gloves', text: 'Thick rubber, a lineman’s tag stitched inside. Live junctions can be disconnected now. There was one in the Cistern Hall.' }],
+  frontier_first: [{ speaker: '', text: 'These tunnels are on no map you have. Somewhere below, the city keeps going.' }],
   slice_end: [{ speaker: '', text: 'End of the first playable slice. The world below continues in future milestones — you can keep exploring.' }],
 };
 

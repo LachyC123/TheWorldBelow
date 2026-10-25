@@ -3,13 +3,15 @@
 import type { EntityDef, ExitDef, InteractDef, RegionDef, TriggerDef } from '../content/types.ts';
 import { TILE } from '../content/tiles.ts';
 import { WEAPONS } from '../content/weapons.ts';
+import { weaponStats } from './weaponStats.ts';
+import { TONIC_HP, UPGRADE_BY_ID, CAP_GLOVES } from '../content/discoveries.ts';
 import { CAP_TORCH_LENS, type AmmoPool } from '../content/ids.ts';
 import { Grid } from './grid.ts';
 import { evaluate, type ConditionContext } from './conditions.ts';
 import type { SequencedEvent, SimEvent } from './events.ts';
 import { BANDAGE_HEAL, giveWeapon, regionDelta, type GameData, type RegionDelta } from './gameData.ts';
 import { Rng } from './rng.ts';
-import type { Commands, EnemyState, Face, PickupState, PlayerState, ProjectileState, Prompt, TargetState, VentState } from './types.ts';
+import type { BoltState, Commands, EnemyState, Face, PickupState, PlayerState, ProjectileState, Prompt, TargetState, VentState } from './types.ts';
 import { createEnemy, updateEnemy, damageEnemy } from './ai.ts';
 import { PathField } from './pathfield.ts';
 
@@ -41,6 +43,8 @@ export class World {
   readonly pickups: PickupState[] = [];
   readonly targets: TargetState[] = [];
   readonly vents: VentState[] = [];
+  readonly bolts: BoltState[] = [];
+  private boltSeq = 0;
   readonly temp: Record<string, boolean> = {};
   readonly rng: Rng;
   readonly ctx: ConditionContext;
@@ -124,6 +128,7 @@ export class World {
         if (this.delta.collected.includes(e.id)) return;
         const p: PickupState = { id: e.id, item: e.item, amount: e.amount, x: e.tx * TILE + 8, y: e.ty * TILE + 10, visible: true, bob: this.pickups.length };
         if (e.journal) p.journal = e.journal;
+        if (e.ref) p.ref = e.ref;
         this.pickups.push(p);
         return;
       }
@@ -193,6 +198,7 @@ export class World {
     this.path.update(this.player.x, this.player.y - 4, this.time);
     for (const e of this.enemies) updateEnemy(e, this);
     this.updateProjectiles();
+    this.updateBolts();
     this.updateVents();
     if (this.player.alive) {
       this.updatePickups();
@@ -308,7 +314,7 @@ export class World {
     }
 
     // aim: manual drag/mouse overrides; otherwise facing with assistance while firing
-    const weapon = d.weapons.length ? WEAPONS[d.weapons[d.activeWeapon]!] : null;
+    const weapon = d.weapons.length ? weaponStats(d.weapons[d.activeWeapon]!, d.capabilities) : null;
     p.manualAim = cmd.aimAngle !== null;
     if (cmd.aimAngle !== null) {
       p.aim = cmd.aimAngle;
@@ -357,19 +363,19 @@ export class World {
     const d = this.data;
     const id = d.weapons[d.activeWeapon];
     if (!id || this.player.reloadT > 0) return;
-    this.player.reloadT = WEAPONS[id].reloadMs / 1000;
+    this.player.reloadT = weaponStats(id, this.data.capabilities).reloadMs / 1000;
     this.emit({ type: 'ReloadStarted', weaponId: id });
   }
 
   reloadProgress(): number {
     const id = this.data.weapons[this.data.activeWeapon];
     if (!id || this.player.reloadT <= 0) return 0;
-    return 1 - this.player.reloadT / (WEAPONS[id].reloadMs / 1000);
+    return 1 - this.player.reloadT / (weaponStats(id, this.data.capabilities).reloadMs / 1000);
   }
 
   private fire(id: keyof typeof WEAPONS): void {
     const p = this.player;
-    const w = WEAPONS[id];
+    const w = weaponStats(id, this.data.capabilities);
     this.data.mag[id] = (this.data.mag[id] ?? 0) - 1;
     p.fireCd = w.cadenceMs / 1000;
     const hand = this.handPoint();
@@ -404,7 +410,11 @@ export class World {
         e.seenX = p.x;
         e.seenY = p.y;
         e.hasSeen = true;
-        if (!e.alerted && e.type !== 'leech' && e.type !== 'keeper') {
+        if (e.type === 'drone' && e.state === 'sweep') {
+          e.state = 'search';
+          e.t = 2.5;
+        }
+        if (!e.alerted && e.type !== 'leech' && e.type !== 'keeper' && e.type !== 'drone') {
           e.alerted = true;
           this.emit({ type: 'EnemyAlerted', id: e.id, enemy: e.type, x: e.x, y: e.y });
         }
@@ -604,6 +614,23 @@ export class World {
       case 'note':
         if (k.journal && !d.journal.includes(k.journal)) d.journal.push(k.journal);
         break;
+      case 'insulated_gloves':
+        if (!d.capabilities.includes(CAP_GLOVES)) d.capabilities.push(CAP_GLOVES);
+        break;
+      case 'curio':
+        if (k.ref && !d.finds.curios.includes(k.ref)) d.finds.curios.push(k.ref);
+        break;
+      case 'upgrade': {
+        const u = k.ref ? UPGRADE_BY_ID[k.ref] : undefined;
+        if (!u || d.finds.upgrades.includes(u.id)) break;
+        d.finds.upgrades.push(u.id);
+        if (u.kind === 'tonic') {
+          d.maxHp += TONIC_HP;
+          d.hp = Math.min(d.maxHp, d.hp + TONIC_HP);
+          this.emit({ type: 'MaxHealthUp', maxHp: d.maxHp });
+        } else if (!d.capabilities.includes(u.id)) d.capabilities.push(u.id);
+        break;
+      }
       case 'cache':
         if (d.cache) {
           d.reserves.light_rounds += d.cache.reserves.light_rounds;
@@ -615,7 +642,9 @@ export class World {
         break;
     }
     if (k.item !== 'cache') this.delta.collected.push(k.id);
-    this.emit({ type: 'PickedUp', id: k.id, item: k.item === 'cache' ? 'note' : k.item, amount: k.amount, x: k.x, y: k.y });
+    const ev: SimEvent = { type: 'PickedUp', id: k.id, item: k.item === 'cache' ? 'note' : k.item, amount: k.amount, x: k.x, y: k.y };
+    if (k.ref) ev.ref = k.ref;
+    this.emit(ev);
   }
 
   private inRect(e: { tx: number; ty: number; w?: number; h?: number }, x: number, y: number): boolean {
@@ -695,6 +724,14 @@ export class World {
     return best ? { def: best.def, prompt: best.prompt } : null;
   }
 
+  /** Undo a requested exit that could not be completed (e.g. generation failed). */
+  cancelExit(): void {
+    this.exiting = false;
+    this.exitLatched = false;
+    // step back from an auto exit so it does not fire again immediately
+    this.moveBox(this.player, -this.player.lastMoveX * 10, -this.player.lastMoveY * 10, 5, 6);
+  }
+
   /** Called by the controller when the interact command is pressed. */
   interact(): void {
     const c = this.interactionCandidate();
@@ -714,6 +751,39 @@ export class World {
       return;
     }
     this.emit({ type: 'ActionRequested', action: e.action, entityId: e.id });
+  }
+
+  // ------------------------------------------------------------------ enemy bolts (slow, readable, dodgeable)
+  fireBolt(x: number, y: number, angle: number, speed: number, damage: number): void {
+    this.bolts.push({ id: ++this.boltSeq, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 3, damage, alive: true });
+    this.emit({ type: 'BoltFired', x, y, angle });
+  }
+
+  private updateBolts(): void {
+    const p = this.player;
+    for (const b of this.bolts) {
+      if (!b.alive) continue;
+      b.life -= DT;
+      const sp = Math.hypot(b.vx, b.vy);
+      const step = sp * DT;
+      const dx = b.vx / sp;
+      const dy = b.vy / sp;
+      const hit = this.grid.ray(this.grid.shot, b.x, b.y, dx, dy, step);
+      const t = p.alive ? segCircle(b.x, b.y, dx, dy, step, p.x, p.y - 8, 7) : null;
+      if (t !== null && (!hit.hit || t < hit.dist)) {
+        b.alive = false;
+        if (this.hurtPlayer(b.damage, 'a Watchman Drone bolt', b.x, b.y)) this.emit({ type: 'Impact', x: b.x + dx * t, y: b.y + dy * t, angle: Math.atan2(dy, dx), material: 'flesh' });
+        continue;
+      }
+      if (hit.hit || b.life <= 0) {
+        b.alive = false;
+        this.emit({ type: 'Impact', x: hit.x, y: hit.y, angle: Math.atan2(dy, dx), material: 'metal' });
+        continue;
+      }
+      b.x += dx * step;
+      b.y += dy * step;
+    }
+    for (let i = this.bolts.length - 1; i >= 0; i--) if (!this.bolts[i]!.alive) this.bolts.splice(i, 1);
   }
 
   // ------------------------------------------------------------------ boss floor vents

@@ -102,19 +102,21 @@ export interface ExitDef extends EntityBase {
   lockedText?: string;
 }
 
-export type ItemId = 'service_pistol' | 'pump_shotgun' | 'light_rounds' | 'shells' | 'bandage' | 'torch_lens' | 'note';
+export type ItemId = 'service_pistol' | 'pump_shotgun' | 'light_rounds' | 'shells' | 'bandage' | 'torch_lens' | 'note' | 'curio' | 'upgrade' | 'insulated_gloves';
 
 export interface PickupDef extends EntityBase {
   kind: 'pickup';
   item: ItemId;
   amount: number;
+  /** curio or upgrade ID for unique finds */
+  ref?: string;
   /** note pickups add a journal entry */
   journal?: StableId;
   /** hidden until condition holds */
   when?: Condition;
 }
 
-export type EnemyType = 'skitter' | 'leech' | 'keeper';
+export type EnemyType = 'skitter' | 'leech' | 'keeper' | 'drone';
 
 export interface EnemyDef extends EntityBase {
   kind: 'enemy';

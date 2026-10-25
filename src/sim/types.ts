@@ -118,8 +118,20 @@ export interface PickupState {
   x: number;
   y: number;
   journal?: string;
+  ref?: string;
   visible: boolean;
   bob: number;
+}
+
+export interface BoltState {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  damage: number;
+  alive: boolean;
 }
 
 export interface TargetState {

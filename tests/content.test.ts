@@ -6,6 +6,7 @@ import { REGION_LIST, REGION_DEFS } from '../src/content/registry.ts';
 import { DIALOGUE, JOURNAL } from '../src/content/story.ts';
 import { F, REGIONS } from '../src/content/ids.ts';
 import { Grid } from '../src/sim/grid.ts';
+import { AUTHORED_SOCKETS, MANHOLES } from '../src/world/frontier.ts';
 import type { Condition, RegionDef } from '../src/content/types.ts';
 
 const atlas = (n: string): Record<string, unknown> => (JSON.parse(readFileSync(`public/assets/${n}.json`, 'utf8')) as { frames: Record<string, unknown> }).frames;
@@ -49,8 +50,19 @@ describe('content registry', () => {
     for (const r of REGION_LIST)
       for (const e of r.entities)
         if (e.kind === 'exit') {
-          expect(REGION_DEFS[e.target.region], `${r.id}:${e.id}`).toBeDefined();
-          expect(REGION_DEFS[e.target.region]!.entries[e.target.entry], `${r.id}:${e.id}`).toBeDefined();
+          if (e.target.region.startsWith('gen:')) {
+            const s = AUTHORED_SOCKETS[e.target.region.slice(4)];
+            expect(s, `${r.id}:${e.id} socket`).toBeDefined();
+            expect(s!.parentRegion).toBe(r.id);
+            expect(r.entries[s!.parentEntry], `${r.id}:${e.id} return entry`).toBeDefined();
+          } else if (e.target.region.startsWith('manhole:')) {
+            const m = e.target.region.slice(8);
+            expect(MANHOLES).toContain(m);
+            expect(r.entries[`manhole_${m}`], `${r.id}:${e.id} manhole entry`).toBeDefined();
+          } else {
+            expect(REGION_DEFS[e.target.region], `${r.id}:${e.id}`).toBeDefined();
+            expect(REGION_DEFS[e.target.region]!.entries[e.target.entry], `${r.id}:${e.id}`).toBeDefined();
+          }
         }
   });
 
@@ -105,6 +117,12 @@ describe('reachability and fairness', () => {
       [F.hasPistol]: 'pickup_service_pistol',
       [F.pipekeeperDefeated]: 'boss_pipekeeper',
       tmp_arena_sealed: 'pipekeeper_commit',
+      [F.serviceJunctionOpen]: `open_gate:${F.serviceJunctionOpen}`,
+      [F.pressureRouteOpen]: 'open_pressure_route',
+      // manholes open when the player climbs a generated district's ladder (Game.onExit)
+      manhole_a_open: 'street_manhole_a_exit',
+      manhole_b_open: 'street_manhole_b_exit',
+      manhole_c_open: 'street_manhole_c_exit',
     };
     const actions = new Set(REGION_LIST.flatMap((r) => r.entities.map((e) => ('action' in e ? e.action : e.id))));
     const gates = new Set<string>();
@@ -133,7 +151,7 @@ describe('reachability and fairness', () => {
 
   it('the slice region graph is connected and the return shortcut exists', () => {
     const adj = new Map<string, Set<string>>();
-    for (const r of REGION_LIST) for (const e of r.entities) if (e.kind === 'exit') {
+    for (const r of REGION_LIST) for (const e of r.entities) if (e.kind === 'exit' && REGION_DEFS[e.target.region]) {
       if (!adj.has(r.id)) adj.set(r.id, new Set());
       adj.get(r.id)!.add(e.target.region);
     }

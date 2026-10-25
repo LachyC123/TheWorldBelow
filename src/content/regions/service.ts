@@ -2,7 +2,7 @@ import { MapBuilder } from '../mapBuilder.ts';
 import { Floor, WallStyle } from '../tiles.ts';
 import type { EntityDef, RegionDef } from '../types.ts';
 import { F, REGIONS } from '../ids.ts';
-import { flag, px } from '../cond.ts';
+import { flag, not, px } from '../cond.ts';
 
 const m = new MapBuilder(48, 28)
   .carve(2, 2, 4, 3, '.')
@@ -20,6 +20,9 @@ const m = new MapBuilder(48, 28)
   .carve(15, 19, 2, 1, 'g')
   .carve(28, 19, 2, 1, 'g')
   .carve(32, 16, 16, 2, '.')
+  .carve(22, 25, 2, 3, ',')
+  .carve(1, 14, 4, 5, 'k')
+  .carve(5, 16, 1, 2, 'k')
   // amber-painted cable route: the slice's breadcrumb trail
   .hrun(4, 13, 4, 'h')
   .vrun(14, 4, 15, 'v')
@@ -48,6 +51,14 @@ const entities: EntityDef[] = [
   { kind: 'enemy', id: 'service_skitter_a', tx: 22, ty: 16, type: 'skitter', respawns: true },
   { kind: 'enemy', id: 'service_skitter_b', tx: 9, ty: 23, type: 'skitter', respawns: true },
   { kind: 'enemy', id: 'service_skitter_c', tx: 29, ty: 22, type: 'skitter', respawns: true },
+  { kind: 'exit', id: 'service_south_frontier', tx: 22, ty: 27, w: 2, h: 1, auto: true, target: { region: 'gen:service_south', entry: 'from_parent' } },
+  { kind: 'prop', id: 'service_junction_a', tx: 5, ty: 16, frame: 'junction_0', solid: { w: 1, h: 1 }, opaque: true, solidWhen: not(F.serviceJunctionOpen), anim: { frames: ['junction_0', 'junction_1', 'junction_2'], fps: 8 }, alt: { when: flag(F.serviceJunctionOpen), frame: 'junction_open' } },
+  { kind: 'prop', id: 'service_junction_b', tx: 5, ty: 17, frame: 'junction_1', solid: { w: 1, h: 1 }, opaque: true, solidWhen: not(F.serviceJunctionOpen), anim: { frames: ['junction_1', 'junction_2', 'junction_0'], fps: 8 }, alt: { when: flag(F.serviceJunctionOpen), frame: 'junction_open' } },
+  { kind: 'interact', id: 'service_junction_use', tx: 5, ty: 16, h: 2, reach: 14, verb: 'Disconnect', label: 'Live junction', action: `open_gate:${F.serviceJunctionOpen}`, when: { type: 'hasCapability', id: 'insulated_gloves' }, lockedText: 'junction_locked', hideWhen: flag(F.serviceJunctionOpen) },
+  { kind: 'pickup', id: 'service_store_tonic', tx: 2, ty: 15, item: 'upgrade', amount: 1, ref: 'tonic_4' },
+  { kind: 'pickup', id: 'service_store_curio', tx: 3, ty: 17, item: 'curio', amount: 1, ref: 'curio_rota_card' },
+  { kind: 'pickup', id: 'service_store_shells', tx: 1, ty: 17, item: 'shells', amount: 6 },
+  { kind: 'prop', id: 'service_store_shelf', tx: 4, ty: 14, frame: 'shelf_junk', solid: { w: 1, h: 1 } },
   { kind: 'exit', id: 'service_to_gallery', tx: 47, ty: 16, w: 1, h: 2, auto: true, target: { region: REGIONS.gallery, entry: 'west' } },
 ];
 
@@ -77,6 +88,7 @@ export const service: RegionDef = {
     ladder: { tx: 3, ty: 3, face: 'down' },
     booth: { tx: 20, ty: 4, face: 'down' },
     east: { tx: 46, ty: 16, face: 'left' },
+    south: { tx: 22, ty: 24, face: 'up' },
   },
   discoverTitle: 'Service Veins',
   lights: [
@@ -86,6 +98,9 @@ export const service: RegionDef = {
     { id: 'service_green_d', x: px(45), y: px(16), radius: 64, color: [120, 255, 190], intensity: 0.75 },
     { id: 'service_ladder_spill', x: px(3), y: px(2), radius: 44, color: [255, 190, 120], intensity: 0.5 },
     { id: 'service_emergency', x: px(30), y: px(12), radius: 60, color: [255, 70, 50], intensity: 0.5, flicker: 0.35 },
+    { id: 'service_store_glow', x: px(5), y: px(16), radius: 40, color: [150, 255, 220], intensity: 0.7, flicker: 0.5, when: not(F.serviceJunctionOpen) },
+    { id: 'service_store_lamp', x: px(2), y: px(15), radius: 56, color: [255, 190, 120], intensity: 0.5, flicker: 0.2 },
+    { id: 'service_south_light', x: px(22), y: px(25), radius: 50, color: [140, 190, 255], intensity: 0.5, flicker: 0.1 },
     { id: 'service_booth_lamp', x: px(22), y: px(3), radius: 104, color: [255, 196, 120], intensity: 1, flicker: 0.02, when: flag(F.boothLampLit) },
   ],
   entities,

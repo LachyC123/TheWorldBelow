@@ -2,12 +2,14 @@
 // every field is type/range checked and IDs must resolve against the content registry.
 import { REGION_DEFS, CONTENT_VERSION } from '../content/registry.ts';
 import { WEAPON_IDS, type WeaponId } from '../content/ids.ts';
-import type { GameData, RegionDelta } from '../sim/gameData.ts';
+import { newFinds, newWorldLedger, type GameData, type RegionDelta } from '../sim/gameData.ts';
+import { validateDistrict, GENERATOR_VERSION, type GeneratedRegionRecord } from '../world/generator.ts';
+import { KITS } from '../world/kits.ts';
 
 export const SAVE_FORMAT = 'the-world-below-save';
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 2;
 export const GENERATOR_VERSIONS = { base: 1 };
-export const MAX_IMPORT_BYTES = 2_000_000;
+export const MAX_IMPORT_BYTES = 16_000_000;
 export const GAME_BUILD = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev';
 
 declare const __BUILD_ID__: string | undefined;
@@ -92,6 +94,8 @@ export function validateEnvelope(raw: unknown): ValidationResult {
   let env = raw as unknown as SaveEnvelope;
   let migrated = false;
   if (env.saveSchemaVersion < SAVE_SCHEMA_VERSION) {
+    // verify the old record is intact before transforming it
+    if (!isObj(env.data) || !isStr(env.checksum, 16) || env.checksum !== checksum(env.data)) return { ok: false, error: 'Checksum mismatch: the save is damaged or incomplete.' };
     env = migrate(env);
     migrated = true;
   }
@@ -106,7 +110,19 @@ export function validateEnvelope(raw: unknown): ValidationResult {
 
 function validateData(d: unknown): string | null {
   if (!isObj(d)) return 'Missing world data.';
-  if (!isStr(d.regionId) || !REGION_DEFS[d.regionId]) return `Unknown region "${String(d.regionId)}".`;
+  const wl = d.world;
+  if (!isObj(wl) || !isStr(wl.seed) || !isObj(wl.generated) || !isObj(wl.sockets) || !isObj(wl.seenModules) || !isStrArr(wl.uniques, 500) || !isStrArr(wl.names, 5000) || !isObj(wl.manholes) || !isNum(wl.districts, 0))
+    return 'Invalid world ledger.';
+  if (Object.keys(wl.generated).length > 5000) return 'Too many generated districts.';
+  for (const [id, rec] of Object.entries(wl.generated)) {
+    const e = validateGenerated(id, rec);
+    if (e) return e;
+  }
+  const known = (id: unknown): boolean => isStr(id) && (!!REGION_DEFS[id] || !!(wl.generated as Record<string, unknown>)[id]);
+  const entriesOf = (id: string): Record<string, unknown> => (REGION_DEFS[id]?.entries ?? (wl.generated as Record<string, GeneratedRegionRecord>)[id]?.entries ?? {}) as Record<string, unknown>;
+  const f = d.finds;
+  if (!isObj(f) || !isStrArr(f.curios, 500) || !isStrArr(f.upgrades, 100) || !isStrArr(f.landmarks, 500) || !isNum(f.secrets, 0)) return 'Invalid finds.';
+  if (!known(d.regionId)) return `Unknown region "${String(d.regionId)}".`;
   if (!isNum(d.x, 0, 100000) || !isNum(d.y, 0, 100000)) return 'Invalid position.';
   if (!['down', 'up', 'left', 'right'].includes(d.face as string)) return 'Invalid facing.';
   if (!isNum(d.maxHp, 1, 1000) || !isNum(d.hp, 0, d.maxHp as number)) return 'Invalid health.';
@@ -119,8 +135,8 @@ function validateData(d: unknown): string | null {
   if (!isNum(d.bandages, 0, 99)) return 'Invalid bandages.';
   if (!isStrArr(d.capabilities, 50)) return 'Invalid capabilities.';
   if (typeof d.torchOn !== 'boolean') return 'Invalid torch state.';
-  if (!isObj(d.lastRefuge) || !isStr(d.lastRefuge.regionId) || !REGION_DEFS[d.lastRefuge.regionId] || !isStr(d.lastRefuge.entry) || !isStr(d.lastRefuge.id)) return 'Invalid refuge.';
-  if (!REGION_DEFS[d.lastRefuge.regionId]!.entries[d.lastRefuge.entry]) return 'Refuge entry missing.';
+  if (!isObj(d.lastRefuge) || !known(d.lastRefuge.regionId) || !isStr(d.lastRefuge.entry) || !isStr(d.lastRefuge.id)) return 'Invalid refuge.';
+  if (!entriesOf(d.lastRefuge.regionId as string)[d.lastRefuge.entry]) return 'Refuge entry missing.';
   if (!isObj(d.flags) || Object.keys(d.flags).length > 2000 || !Object.entries(d.flags).every(([k, v]) => isStr(k, 80) && typeof v === 'boolean')) return 'Invalid flags.';
   if (!isObj(d.regions) || Object.keys(d.regions).length > 5000) return 'Invalid region records.';
   for (const [id, r] of Object.entries(d.regions)) {
@@ -132,16 +148,47 @@ function validateData(d: unknown): string | null {
   if (!isStrArr(d.journal, 500) || !isStrArr(d.visitedRegions, 5000)) return 'Invalid journal.';
   if (d.cache !== null) {
     const c = d.cache;
-    if (!isObj(c) || !isStr(c.regionId) || !REGION_DEFS[c.regionId] || !isNum(c.x, 0) || !isNum(c.y, 0) || !isObj(c.reserves) || !isNum(c.reserves.light_rounds, 0, 9999) || !isNum(c.reserves.shells, 0, 9999) || !isNum(c.bandages, 0, 99))
+    if (!isObj(c) || !known(c.regionId) || !isNum(c.x, 0) || !isNum(c.y, 0) || !isObj(c.reserves) || !isNum(c.reserves.light_rounds, 0, 9999) || !isNum(c.reserves.shells, 0, 9999) || !isNum(c.bandages, 0, 99))
       return 'Invalid recovery cache.';
   }
   if (!isNum(d.playSeconds, 0) || !isNum(d.deaths, 0)) return 'Invalid counters.';
   return null;
 }
 
-/** Placeholder for future schema upgrades; each step must be reversible from a backup. */
+const ENTITY_KINDS = new Set(['prop', 'interact', 'exit', 'pickup', 'enemy', 'trigger', 'target', 'vent']);
+
+/** Structural and gameplay validation of a materialized generated district from a save. */
+function validateGenerated(id: string, raw: unknown): string | null {
+  if (!isObj(raw)) return `Invalid district ${id}.`;
+  const r = raw as unknown as GeneratedRegionRecord;
+  if (r.id !== id || !isStr(r.name, 80) || !isStr(r.socketId, 200) || !isStr(r.parentRegion) || !isStr(r.parentEntry, 80)) return `Invalid district ${id}.`;
+  if (!(r.biome in KITS) || !isNum(r.depth, 1, 10000) || !isNum(r.generatorVersion, 1, GENERATOR_VERSION)) return `District ${id} has an unknown biome or version.`;
+  if (!Array.isArray(r.map) || r.map.length < 3 || r.map.length > 300 || !r.map.every((row) => isStr(row, 300) && row.length === r.map[0]!.length)) return `District ${id} has an invalid map.`;
+  const legend = KITS[r.biome].legend;
+  if (!r.map.every((row) => [...row].every((ch) => ch in legend))) return `District ${id} has unknown tiles.`;
+  if (!Array.isArray(r.entities) || r.entities.length > 3000) return `District ${id} has invalid entities.`;
+  for (const e of r.entities) {
+    if (!isObj(e) || !ENTITY_KINDS.has(e.kind as string) || !isStr(e.id, 120) || !isNum(e.tx, -2, 300) || !isNum(e.ty, -2, 300)) return `District ${id} has an invalid entity.`;
+  }
+  if (!Array.isArray(r.lights) || !r.lights.every((l) => isObj(l) && isNum(l.x) && isNum(l.y) && isNum(l.radius, 0, 1000) && isNum(l.intensity, 0, 4))) return `District ${id} has invalid lights.`;
+  if (!isObj(r.entries) || !Array.isArray(r.emitters) || !Array.isArray(r.childSockets)) return `District ${id} is incomplete.`;
+  const problems = validateDistrict(r);
+  if (problems.length) return `District ${id} failed validation: ${problems[0]}`;
+  return null;
+}
+
+/** Schema upgrades. Each step keeps the original record as the slot backup until the next save. */
 export function migrate(env: SaveEnvelope): SaveEnvelope {
-  return { ...env, saveSchemaVersion: SAVE_SCHEMA_VERSION };
+  const out = JSON.parse(JSON.stringify(env)) as SaveEnvelope;
+  if (out.saveSchemaVersion < 2) {
+    // v2: persistent generated frontier and finds
+    const d = out.data as GameData & { world?: unknown; finds?: unknown };
+    if (!d.world) d.world = newWorldLedger(`${out.rootSeed}:${out.worldId}`);
+    if (!d.finds) d.finds = newFinds();
+  }
+  out.saveSchemaVersion = SAVE_SCHEMA_VERSION;
+  out.checksum = checksum(out.data);
+  return out;
 }
 
 export function parseImport(text: string): ValidationResult {

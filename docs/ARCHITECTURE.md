@@ -45,6 +45,33 @@ No art pack was supplied. All pixel art is drawn by deterministic TypeScript in 
 ## ADR-10 Audio
 Web Audio cues are synthesized at runtime (no samples yet) on category buses: ambience, weapons, creatures, UI, world. Audio is unlocked by the Start/Continue gesture, suspended when hidden and resumed on return. Identical cues are rate-limited. Every critical sound has a visual equivalent: telegraph glyphs, visual sound-cue icons and journal text.
 
-## Not yet built (by milestone)
-- **M3:** seeded frontier generation in workers, socket/module rules, validators, novelty director, region manifests for generated territory. The slice world is fully authored, so there is nothing to regenerate yet.
+## ADR-11 Persistent generated frontier (M3)
+The authored slice opens onto generated territory at **sockets**: the street storm drain, the Cistern Hall's south passage, and the gallery's east and south exits. Each socket generates a district the first time it is entered.
+
+**What a district is made of.** `src/world/generator.ts` is pure and deterministic. It turns (world seed, socket, ledger, generator version) into:
+- a macro grid of 4–12 cells
+- a randomized spanning tree plus loops, so districts have alternate routes
+- roles: arrival, connector, combat, reward, rest, landmark, secret, vault
+- authored room modules (`src/world/modules.ts`) placed per role and door side
+- 2-wide corridors, plus exits on the map edge back to the parent and on to 1–2 child sockets
+
+**What goes inside.** Encounters scale with depth; Watchman Drones appear from depth 2, or in the pump works. Loot, survey maps, refuges and decoration come from biome kits (`src/world/kits.ts`): service veins, storm drains and pump works.
+
+**Secrets and gated rooms.** Secret rooms sit behind loose brickwork with a visible clue (lint drifting through the gaps). Vaults sit behind live junctions that need the insulated gloves.
+
+**Unique content.** Curios, upgrades, landmarks and the gloves are reserved in a per-world ledger, so nothing unique is placed twice. The gloves are guaranteed in the first district generated. Hand-placed uniques are excluded from the generator.
+
+**Novelty.** Module choice is weighted by how often each module has been seen in this world, and by repeats within the district. Independent RNG streams (topology, encounters, decoration, loot) keep a cosmetic change from moving a corridor.
+
+**Validation before commit.** Flood fills run twice: with gates closed (return path, onward exits, ladder, refuge, gloves) and with gates open (everything else). Checks also cover safe arrival spacing (no creature within 7 tiles), unique IDs and map integrity. Up to 12 seeded retries, then a known-good fallback layout. This was tested across 1,200 seeds × biomes × sides × depths with zero rejections, and a 40-district chain with no duplicated uniques.
+
+**Workers and commit.** Generation runs in a module Web Worker (`src/workers/generate.worker.ts`). Jobs carry IDs and a world epoch, so results from a previous slot are discarded. If a worker can't start, generation falls back to the main thread. The result is re-validated on the main thread and committed atomically into the save as **materialized data** (`data.world.generated`): map rows, entities, lights and entries. A visited district is therefore never regenerated, even if the generator changes. Sockets map to committed region IDs.
+
+**Shortcuts.** Ladders in depth-1 districts unbolt one of three street manholes from below. Those become two-way shortcuts.
+
+**Saves.** Schema v2 adds `world` (ledger and districts) and `finds`. v1 saves are checksum-verified, then migrated, and the original record stays as the slot backup until the next save. Imported districts are revalidated (tiles must belong to their biome legend, entities must be well-formed, and the full district validation runs) before acceptance.
+
+## Not yet built
+- Region families beyond the three tunnel biomes (Last Platform, Drowned Ward, gardens), NPCs, the Foundation and the reveal.
 - Map custom markers, journal hint ladder, refuge stash/inventory grid, service worker/offline.
+- Storage growth profiling at 1,000+ districts (each district is roughly 10–15 KB of JSON in the save).

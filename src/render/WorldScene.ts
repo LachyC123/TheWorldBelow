@@ -60,6 +60,9 @@ const ITEM_FRAME: Record<string, string> = {
   torch_lens: 'pickup_torch_lens',
   note: 'pickup_note',
   cache: 'pickup_cache',
+  curio: 'pickup_curio',
+  upgrade: 'pickup_upgrade',
+  insulated_gloves: 'pickup_gloves',
 };
 
 export class WorldScene extends Phaser.Scene {
@@ -78,6 +81,7 @@ export class WorldScene extends Phaser.Scene {
   private targetSprites = new Map<string, Phaser.GameObjects.Image>();
   private ventSprites = new Map<string, Phaser.GameObjects.Image>();
   private tracerPool: Phaser.GameObjects.Image[] = [];
+  private boltPool: Phaser.GameObjects.Image[] = [];
   private muzzle!: Phaser.GameObjects.Image;
   private muzzleT = 0;
   private bloom!: Phaser.GameObjects.Image;
@@ -225,6 +229,7 @@ export class WorldScene extends Phaser.Scene {
     this.targetSprites.clear();
     this.ventSprites.clear();
     for (const t of this.tracerPool) t.setVisible(false);
+    for (const t of this.boltPool) t.setVisible(false);
     this.world = null;
   }
 
@@ -427,6 +432,7 @@ export class WorldScene extends Phaser.Scene {
       let ox = 0;
       let oy = 0;
       if (e.type === 'leech') oy = e.state === 'latch' ? -6 : e.dead ? 0 : -14 + Math.sin(t * 2.4 + e.homeX) * 2;
+      if (e.type === 'drone') oy = e.dead ? 0 : -8 + Math.round(Math.sin(t * 3 + e.homeX) * 1.5);
       if ((e.state === 'telegraph' || e.state.endsWith('_tell')) && !e.dead) ox = Math.round(Math.sin(t * 60) * 1);
       if (e.type === 'leech' && e.state === 'swell') ox = Math.round(Math.sin(t * 50) * 1);
       v.body.setPosition(Math.round(e.x + ox), Math.round(e.y + oy + (e.type === 'keeper' ? 4 : 1)));
@@ -446,14 +452,16 @@ export class WorldScene extends Phaser.Scene {
       let v = this.pickupSprites.get(k.id);
       if (!v) {
         v = {
-          s: this.add.image(k.x, k.y, 'props', ITEM_FRAME[k.item] ?? 'pickup_note').setOrigin(0.5, 1),
-          g: this.add.image(k.x, k.y, 'fx', 'glow_16').setDepth(D.glow).setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff0c0),
+          s: this.add.image(k.x, k.y, 'props', k.item === 'upgrade' && k.ref?.startsWith('tonic') ? 'pickup_tonic' : ITEM_FRAME[k.item] ?? 'pickup_note').setOrigin(0.5, 1),
+          g: this.add.image(k.x, k.y, 'fx', 'glow_16').setDepth(D.glow).setBlendMode(Phaser.BlendModes.ADD).setTint(k.item === 'curio' || k.item === 'upgrade' || k.item === 'insulated_gloves' ? 0xffd27a : 0xfff0c0),
         };
         this.pickupSprites.set(k.id, v);
       }
       const bob = Math.round(Math.sin(this.time0 * 3 + k.bob) * 1);
       v.s.setVisible(k.visible).setPosition(Math.round(k.x), Math.round(k.y + bob)).setDepth(D.sorted + k.y * 0.01);
-      v.g.setVisible(k.visible).setPosition(Math.round(k.x), Math.round(k.y - 5)).setAlpha(0.25 + Math.sin(this.time0 * 4 + k.bob) * 0.12).setScale(1.4);
+      const special = k.item === 'curio' || k.item === 'upgrade' || k.item === 'insulated_gloves';
+      v.g.setVisible(k.visible).setPosition(Math.round(k.x), Math.round(k.y - 5)).setAlpha((special ? 0.45 : 0.25) + Math.sin(this.time0 * 4 + k.bob) * 0.15).setScale(special ? 2.2 : 1.4);
+      if (special && k.visible && Math.random() < 0.04) this.particles.spawn('glow', { x: k.x + Math.random() * 10 - 5, y: k.y - 4 - Math.random() * 8, vy: -10, life: 0.6, color: 0xffd27a, size: 1 });
     }
     for (const [id, v] of this.pickupSprites) {
       if (seen.has(id)) continue;
@@ -476,6 +484,18 @@ export class WorldScene extends Phaser.Scene {
       i++;
     }
     for (; i < this.tracerPool.length; i++) this.tracerPool[i]!.setVisible(false);
+    let j = 0;
+    for (const b of world.bolts) {
+      let s = this.boltPool[j];
+      if (!s) {
+        s = this.add.image(0, 0, 'fx', 'bolt_0').setDepth(D.tracer).setBlendMode(Phaser.BlendModes.ADD);
+        this.boltPool.push(s);
+      }
+      s.setFrame(`bolt_${Math.floor(this.time0 * 12) % 2}`).setVisible(true).setPosition(Math.round(b.x), Math.round(b.y));
+      if (Math.random() < 0.5) this.particles.spawn('glow', { x: b.x, y: b.y, vx: -b.vx * 0.1, vy: -b.vy * 0.1, life: 0.25, color: 0xff6a40, size: 1 });
+      j++;
+    }
+    for (; j < this.boltPool.length; j++) this.boltPool[j]!.setVisible(false);
   }
 
   // ------------------------------------------------------------------ telegraphs (always above the light layer)
@@ -511,6 +531,23 @@ export class WorldScene extends Phaser.Scene {
         g.strokeCircle(e.x, e.y - 10, 9);
       }
       if (e.type === 'keeper') this.keeperTelegraph(g, world, e, red, lw);
+      if (e.type === 'drone') {
+        const ex = e.x;
+        const ey = e.y - e.hh;
+        const locked = e.state === 'lock';
+        const half = locked ? 0.12 : 0.3;
+        const col = locked ? red : 0x7fc2a4;
+        const alpha = locked ? 0.55 + Math.sin(t * 30) * 0.3 : 0.28;
+        g.lineStyle(locked ? lw + 1 : 1, col, alpha);
+        for (const a of [e.angle - half, e.angle + half]) {
+          const hit = world.grid.ray(world.grid.light, ex, ey, Math.cos(a), Math.sin(a), 130);
+          g.lineBetween(ex, ey, hit.x, hit.y);
+        }
+        if (locked) {
+          g.fillStyle(red, 0.9);
+          g.fillTriangle(ex, ey - 16, ex - 3, ey - 11, ex + 3, ey - 11);
+        }
+      }
     }
     for (const v of world.vents) {
       if (v.state === 'tell') {
@@ -615,6 +652,14 @@ export class WorldScene extends Phaser.Scene {
         dyn.push({ x: eyeX, y: e.y - 16, radius: 120, color: e.state.endsWith('_tell') ? [255, 110, 80] : [170, 255, 220], intensity: 0.6, cone: { a0: a - 0.5, a1: a + 0.5 }, core: 0.2 });
       }
     }
+    for (const e of world.enemies) {
+      if (e.type !== 'drone' || e.dead || !e.active) continue;
+      const locked = e.state === 'lock' || e.state === 'cool';
+      const half = e.state === 'lock' ? 0.14 : 0.3;
+      dyn.push({ x: e.x, y: e.y - e.hh, radius: 130, color: locked ? [255, 90, 70] : [160, 255, 220], intensity: locked ? 0.75 : 0.55, cone: { a0: e.angle - half, a1: e.angle + half }, core: 0.15 });
+      dyn.push({ x: e.x, y: e.y - e.hh, radius: 18, color: locked ? [255, 90, 70] : [160, 255, 220], intensity: 0.5, core: 0.2 });
+    }
+    for (const b of world.bolts) dyn.push({ x: b.x, y: b.y, radius: 34, color: [255, 90, 60], intensity: 0.8, core: 0.2 });
     for (const v of world.vents) if (v.state !== 'idle') dyn.push({ x: v.x, y: v.y, radius: 34, color: [255, 160, 70], intensity: v.state === 'burst' ? 0.9 : 0.4, core: 0.2 });
     this.lightMap.render(view.x, view.y, world.def.ambient, dyn);
     this.lightTex?.refresh();
@@ -759,12 +804,19 @@ export class WorldScene extends Phaser.Scene {
           else if (Math.random() < 0.3 && !this.settings.reducedMotion) P.spawn('floor', { x: ev.x, y: ev.y, life: 0.4, size: 1, color: 0xb8b2a2, alpha: 0.4, vx: Math.random() * 10 - 5, vy: -3 });
           break;
         }
+        case 'BoltFired':
+          this.audio.play('drone_fire', pan(ev.x));
+          this.addFlash(ev.x, ev.y, 48, [255, 100, 70], 30, 120, 0.8);
+          break;
+        case 'MaxHealthUp':
+          this.sparkle(world.player.x, world.player.y - 10, 0xff6a40, 26);
+          break;
         case 'EnemyAlerted':
-          this.audio.play(ev.enemy === 'skitter' ? 'skitter_alert' : ev.enemy === 'leech' ? 'leech_alert' : 'keeper_alert', pan(ev.x));
+          this.audio.play(ev.enemy === 'skitter' ? 'skitter_alert' : ev.enemy === 'leech' ? 'leech_alert' : ev.enemy === 'drone' ? 'drone_alert' : 'keeper_alert', pan(ev.x));
           if (ev.enemy === 'skitter') for (let i = 0; i < 8; i++) P.spawn('air', { x: ev.x, y: ev.y, vx: Math.random() * 40 - 20, vy: -Math.random() * 30, life: 0.5, color: 0x8d877a, alpha: 0.5, size: 2, drag: 0.9 });
           break;
         case 'EnemyTelegraph':
-          this.audio.play(ev.enemy === 'skitter' ? 'skitter_tell' : ev.enemy === 'leech' ? 'leech_tell' : 'keeper_tell', pan(ev.x));
+          this.audio.play(ev.enemy === 'skitter' ? 'skitter_tell' : ev.enemy === 'leech' ? 'leech_tell' : ev.enemy === 'drone' ? 'drone_lock' : 'keeper_tell', pan(ev.x));
           break;
         case 'EnemyAttack':
           if (ev.enemy === 'skitter') this.audio.play('skitter_lunge', pan(ev.x));
@@ -785,7 +837,7 @@ export class WorldScene extends Phaser.Scene {
         case 'EnemyDied': {
           const big = ev.enemy === 'keeper';
           this.audio.play(`${ev.enemy}_die`, pan(ev.x));
-          const col = ev.enemy === 'skitter' ? 0x9ccd4c : ev.enemy === 'leech' ? 0xb7ead0 : 0xffd27a;
+          const col = ev.enemy === 'skitter' ? 0x9ccd4c : ev.enemy === 'leech' ? 0xb7ead0 : ev.enemy === 'drone' ? 0xb7ead0 : 0xffd27a;
           for (let i = 0; i < (big ? 60 : 14); i++) {
             const a = Math.random() * Math.PI * 2;
             const sp = 20 + Math.random() * (big ? 120 : 60);
@@ -907,6 +959,13 @@ function enemyFrame(e: EnemyState, t: number): string {
     if (e.state === 'flee' || e.state === 'stunned') return `leech_flee_${Math.floor(t * 6) % 2}`;
     if (e.state === 'agitated') return `leech_agitated_${Math.floor(t * 6) % 2}`;
     return `leech_idle_${Math.floor(t * 3) % 3}`;
+  }
+  if (e.type === 'drone') {
+    if (e.dead) return `drone_dead_${Math.min(3, Math.floor(e.deadT * 6))}`;
+    if (e.hitT > 0.05) return 'drone_hit_0';
+    if (e.state === 'cool' && e.t > 0.9) return `drone_fire_${Math.floor(t * 12) % 2}`;
+    if (e.state === 'lock') return `drone_lock_${Math.floor(t * 10) % 2}`;
+    return `drone_idle_${Math.floor(t * 14) % 2}`;
   }
   // keeper
   if (e.dead) return `keeper_dead_${Math.min(3, Math.floor(e.deadT * 3))}`;

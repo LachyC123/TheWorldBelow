@@ -12,8 +12,23 @@ export const CONTENT_VERSION = 1;
 export const REGION_LIST: RegionDef[] = [home, street, laundry, service, gallery, secret];
 export const REGION_DEFS: Record<RegionId, RegionDef> = Object.fromEntries(REGION_LIST.map((r) => [r.id, r]));
 
+/** Generated districts committed to the active save (materialized, never regenerated). */
+const DYNAMIC = new Map<RegionId, RegionDef>();
+
+export function registerRegion(def: RegionDef): void {
+  DYNAMIC.set(def.id, def);
+}
+
+export function clearDynamicRegions(): void {
+  DYNAMIC.clear();
+}
+
+export function findRegion(id: RegionId): RegionDef | undefined {
+  return REGION_DEFS[id] ?? DYNAMIC.get(id);
+}
+
 export function getRegion(id: RegionId): RegionDef {
-  const r = REGION_DEFS[id];
+  const r = findRegion(id);
   if (!r) throw new Error(`Unknown region ${id}`);
   return r;
 }

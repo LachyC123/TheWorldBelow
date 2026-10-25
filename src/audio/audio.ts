@@ -219,6 +219,22 @@ export class AudioEngine {
         this.tone('creatures', { freq: 200, freqEnd: 30, dur: 2, gain: 0.5, type: 'sawtooth', attack: 0.02 });
         this.noiseBurst('creatures', { dur: 1.6, gain: 0.4, type: 'lowpass', freq: 1200, freqEnd: 100 });
         break;
+      case 'drone_alert':
+        this.tone('creatures', { freq: 880, freqEnd: 1320, dur: 0.18, gain: 0.08 * v, type: 'square', pan });
+        this.tone('creatures', { freq: 1320, dur: 0.12, gain: 0.06 * v, type: 'square', delay: 0.2, pan });
+        break;
+      case 'drone_lock':
+        // rising lock-on tone: the audible warning before every bolt
+        this.tone('creatures', { freq: 400, freqEnd: 1600, dur: 0.7, gain: 0.1 * v, type: 'sawtooth', attack: 0.05, pan });
+        break;
+      case 'drone_fire':
+        this.tone('creatures', { freq: 900, freqEnd: 180, dur: 0.3, gain: 0.18 * v, type: 'square', pan });
+        this.noiseBurst('creatures', { dur: 0.15, gain: 0.2 * v, type: 'bandpass', freq: 1800, q: 2, pan });
+        break;
+      case 'drone_die':
+        this.tone('creatures', { freq: 1200, freqEnd: 60, dur: 0.9, gain: 0.2 * v, type: 'sawtooth', pan });
+        this.noiseBurst('world', { dur: 0.5, gain: 0.35, type: 'lowpass', freq: 1400, delay: 0.6 });
+        break;
       case 'vent_tell':
         this.noiseBurst('world', { dur: 0.8, gain: 0.12, type: 'bandpass', freq: 2000, q: 3, attack: 0.5 });
         break;

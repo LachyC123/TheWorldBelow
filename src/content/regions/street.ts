@@ -67,6 +67,16 @@ const entities: EntityDef[] = [
   { kind: 'target', id: 'tin_c', tx: 41, ty: 18 },
   { kind: 'target', id: 'tin_d', tx: 39, ty: 19 },
   { kind: 'enemy', id: 'street_drain_skitter', tx: 35, ty: 10, type: 'skitter', respawns: false, activeWhen: flag(F.hasPistol) },
+  // ways down: an open storm drain and manholes bolted from below until opened from underneath
+  { kind: 'prop', id: 'street_storm_drain', tx: 5, ty: 10, frame: 'manhole_open', floor: true },
+  { kind: 'exit', id: 'street_storm_drain_exit', tx: 5, ty: 10, w: 1, h: 1, auto: false, verb: 'Climb down', label: 'Storm drain', gate: flag(F.hasPistol), lockedText: 'drain_unarmed', target: { region: 'gen:street_storm_drain', entry: 'from_parent' } },
+  ...(['a', 'b', 'c'] as const).map((m, i): EntityDef[] => {
+    const [x, y] = ([[11, 9], [24, 10], [41, 9]] as const)[i]!;
+    return [
+      { kind: 'prop', id: `street_manhole_${m}`, tx: x, ty: y, frame: 'manhole_closed', floor: true, alt: { when: flag(`manhole_${m}_open`), frame: 'manhole_open' } },
+      { kind: 'exit', id: `street_manhole_${m}_exit`, tx: x, ty: y, w: 1, h: 1, auto: false, verb: 'Climb down', label: 'Manhole', gate: flag(`manhole_${m}_open`), lockedText: 'manhole_locked', target: { region: `manhole:${m}`, entry: 'ladder' } },
+    ];
+  }).flat(),
 ];
 
 export const street: RegionDef = {
@@ -94,6 +104,10 @@ export const street: RegionDef = {
     home_door: { tx: 5, ty: 4, face: 'down' },
     laundry_door: { tx: 22, ty: 4, face: 'down' },
     lift: { tx: 30, ty: 4, face: 'down' },
+    storm_drain: { tx: 6, ty: 9, face: 'down' },
+    manhole_a: { tx: 12, ty: 9, face: 'down' },
+    manhole_b: { tx: 25, ty: 10, face: 'down' },
+    manhole_c: { tx: 42, ty: 9, face: 'down' },
   },
   discoverTitle: 'Bracken',
   lights,

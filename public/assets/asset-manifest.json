@@ -24,7 +24,7 @@
     {
       "id": "props",
       "path": "assets/props.png",
-      "sourceFile": "tools/art/props.ts",
+      "sourceFile": "tools/art/props.ts + tools/art/discovery.ts",
       "source": "Original pixel art authored in this repository (tools/art/*.ts)",
       "author": "THE WORLD BELOW project",
       "license": "Project-owned original work; no third-party material",

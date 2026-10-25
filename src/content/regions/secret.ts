@@ -12,7 +12,8 @@ const m = new MapBuilder(34, 24)
   .sprinkle('f', 'R', 17, 9)
   .carve(11, 7, 2, 2, '#')
   .carve(23, 7, 2, 2, '#')
-  .carve(17, 12, 2, 2, '#');
+  .carve(17, 12, 2, 2, '#')
+  .carve(30, 9, 3, 2, 'r');
 
 const vents: Array<[number, number, 'a' | 'b']> = [
   [9, 6, 'a'], [15, 9, 'a'], [21, 15, 'a'], [27, 10, 'a'], [14, 15, 'a'],
@@ -30,6 +31,10 @@ const entities: EntityDef[] = [
   ...vents.map(([x, y, g], i): EntityDef => ({ kind: 'vent', id: `secret_vent_${i}`, tx: x, ty: y, group: g })),
   { kind: 'pickup', id: 'reward_torch_lens', tx: 19, ty: 10, item: 'torch_lens', amount: 1, when: flag(F.pipekeeperDefeated) },
   { kind: 'pickup', id: 'reward_pressure_note', tx: 21, ty: 10, item: 'note', amount: 1, journal: 'journal_pressure_route', when: flag(F.pipekeeperDefeated) },
+  { kind: 'pickup', id: 'reward_keeper_badge', tx: 17, ty: 9, item: 'curio', amount: 1, ref: 'curio_badge', when: flag(F.pipekeeperDefeated) },
+  { kind: 'interact', id: 'secret_pressure_valves', tx: 32, ty: 9, h: 2, reach: 14, verb: 'Force', label: 'Seized valves', action: 'open_pressure_route', when: flag(F.pipekeeperDefeated), lockedText: 'pressure_keeper', hideWhen: flag(F.pressureRouteOpen) },
+  { kind: 'exit', id: 'secret_pressure_exit', tx: 32, ty: 9, w: 1, h: 2, auto: false, verb: 'Enter', label: 'Pressure route', gate: flag(F.pressureRouteOpen), target: { region: REGIONS.gallery, entry: 'pressure' } },
+  { kind: 'prop', id: 'secret_valve_a', tx: 31, ty: 8, frame: 'valve', wall: true },
   { kind: 'prop', id: 'secret_bench', tx: 7, ty: 4, frame: 'workbench', solid: { w: 2, h: 1 } },
   { kind: 'prop', id: 'secret_pipe', tx: 14, ty: 3, frame: 'big_pipe', wall: true },
   { kind: 'pickup', id: 'pickup_secret_shells', tx: 4, ty: 15, item: 'shells', amount: 4 },
@@ -50,7 +55,7 @@ export const secret: RegionDef = {
   ambient: [46, 36, 32],
   ambience: 'pipeworks',
   motes: 'dust',
-  entries: { gap: { tx: 3, ty: 20, face: 'up' } },
+  entries: { gap: { tx: 3, ty: 20, face: 'up' }, pressure: { tx: 30, ty: 9, face: 'left' } },
   discoverTitle: 'The Pipeworks',
   lights: [
     { id: 'secret_corridor', x: px(4), y: px(16), radius: 60, color: [255, 150, 90], intensity: 0.6, flicker: 0.2 },

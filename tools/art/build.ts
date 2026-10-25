@@ -7,6 +7,7 @@ import { packAtlas, type Frame } from './pack.ts';
 import { buildTileset } from './tiles.ts';
 import { playerFrames, weaponFrames, skitterFrames, leechFrames, keeperFrames } from './chars.ts';
 import { propFrames } from './props.ts';
+import { droneFrames, droneFx, discoveryProps } from './discovery.ts';
 import { fxFrames } from './fx.ts';
 import { ICONS } from './icons.ts';
 import type { Raster } from './raster.ts';
@@ -35,9 +36,9 @@ function atlas(name: string, frames: Frame[], source: string, width = 512): void
 }
 
 writePng('tiles.png', buildTileset(), 'tools/art/tiles.ts');
-atlas('chars', [...playerFrames(), ...weaponFrames(), ...skitterFrames(), ...leechFrames(), ...keeperFrames()], 'tools/art/chars.ts', 1024);
-atlas('props', propFrames(), 'tools/art/props.ts', 512);
-atlas('fx', fxFrames(), 'tools/art/fx.ts', 256);
+atlas('chars', [...playerFrames(), ...weaponFrames(), ...skitterFrames(), ...leechFrames(), ...keeperFrames(), ...droneFrames()], 'tools/art/chars.ts', 1024);
+atlas('props', [...propFrames(), ...discoveryProps()], 'tools/art/props.ts + tools/art/discovery.ts', 512);
+atlas('fx', [...fxFrames(), ...droneFx()], 'tools/art/fx.ts', 256);
 for (const [name, r] of Object.entries(ICONS)) writePng(`ui/${name}.png`, r, 'tools/art/icons.ts');
 
 writeFileSync(join(OUT, 'asset-manifest.json'), JSON.stringify({ generatedBy: 'tools/art/build.ts', assets: manifest }, null, 2));

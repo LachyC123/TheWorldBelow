@@ -236,6 +236,93 @@ check(
   s.region === before.region && Math.abs(s.x - before.x) < 1 && Math.abs(s.y - before.y) < 1 && JSON.stringify(s.flags) === JSON.stringify(before.flags) && s.journal.length === before.journal.length && s.weapons.join() === before.weapons.join() && s.caps.join() === before.caps.join(),
 );
 
+// ---------------------------------------------------------------- F. the generated frontier
+// stand next to an entity (first walkable neighbour tile) and press E
+const nextTo = (id) =>
+  S((eid) => {
+    const w = window.__twb.app.world;
+    const e = w.def.entities.find((x) => x.id === eid);
+    const g = w.grid;
+    const ew = e.w ?? 1;
+    const eh = e.h ?? 1;
+    // orthogonal neighbours first (south side preferred), never diagonal corners
+    const tiles = [];
+    for (let x = e.tx; x < e.tx + ew; x++) tiles.push([x, e.ty + eh]);
+    for (let x = e.tx; x < e.tx + ew; x++) tiles.push([x, e.ty - 1]);
+    for (let y = e.ty; y < e.ty + eh; y++) tiles.push([e.tx - 1, y], [e.tx + ew, y]);
+    for (const [x, y] of tiles) if (x >= 0 && y >= 0 && x < g.w && y < g.h && !g.block[y * g.w + x]) {
+      w.player.x = x * 16 + 8;
+      w.player.y = y * 16 + 12;
+      return true;
+    }
+    return false;
+  }, id);
+await S(() => window.__twb.app.transition('region_surface_001', 'storm_drain'));
+await waitRegion('region_surface_001');
+await nextTo('street_storm_drain_exit');
+await page.keyboard.press('e');
+await wait(2500);
+let gen = await S(() => { const a = window.__twb.app; const w = a.world; return { id: w.def.id, name: w.def.name, rec: !!a.data.world.generated[w.def.id], ents: w.def.entities.map((e) => ({ id: e.id, kind: e.kind, item: e.item, ref: e.ref, action: e.action, label: e.label, target: e.target })) }; });
+check('storm drain leads into a newly generated, committed district', gen.id.startsWith('gen_') && gen.rec, gen.name);
+await skipDialogue();
+await shot('16_frontier');
+const genId = gen.id;
+const mapHash = await S((id) => window.__twb.app.data.world.generated[id].map.join('|').length + ':' + window.__twb.app.data.world.generated[id].entities.length, genId);
+const rubble = gen.ents.find((e) => e.kind === 'interact' && e.label === 'Loose brickwork');
+if (rubble) {
+  await nextTo(rubble.id);
+  await page.keyboard.press('e');
+  await wait(500);
+  const opened = await S((flag) => !!window.__twb.app.data.flags[flag], rubble.action.slice(10));
+  check('secret: loose brickwork pulls away and stays open', opened);
+  await shot('17_secret');
+}
+const finds = gen.ents.filter((e) => e.kind === 'pickup' && (e.ref || e.item === 'insulated_gloves'));
+for (const f of finds) {
+  await S((eid) => { const w = window.__twb.app.world; const e = w.def.entities.find((x) => x.id === eid); w.player.x = e.tx * 16 + 8; w.player.y = e.ty * 16 + 10; }, f.id);
+  await wait(300);
+  await skipDialogue();
+}
+s = await state();
+const fnd = await S(() => window.__twb.app.data.finds);
+check('finds collected (curios, upgrades, tools)', finds.length === 0 || fnd.curios.length + fnd.upgrades.length + (s.caps.includes('insulated_gloves') ? 1 : 0) > 0, JSON.stringify(fnd));
+const frontierExit = gen.ents.find((e) => e.kind === 'exit' && e.id.includes('_frontier_'));
+await S((eid) => { const w = window.__twb.app.world; const e = w.def.entities.find((x) => x.id === eid); const en = Object.values(w.def.entries).find(() => true); void en; const sock = e.target.region.slice(4); const rec = window.__twb.app.data.world.generated[w.def.id]; const i = rec.childSockets.findIndex((c) => c.socketId === sock); const ent = w.def.entries['socket_' + i]; w.player.x = ent.tx * 16 + 8; w.player.y = ent.ty * 16 + 12; }, frontierExit.id);
+const towards = await S((eid) => { const w = window.__twb.app.world; const e = w.def.entities.find((x) => x.id === eid); return e.tx === 0 ? 'a' : e.tx >= w.grid.w - 1 ? 'd' : e.ty === 0 ? 'w' : 's'; }, frontierExit.id);
+await page.keyboard.down(towards);
+await wait(900);
+await page.keyboard.up(towards);
+await wait(2200);
+const deeper = await S(() => { const a = window.__twb.app; return { id: a.world.def.id, depth: a.data.world.generated[a.world.def.id]?.depth, n: a.data.world.districts }; });
+check('walking out of a frontier exit generates a deeper district', deeper.id !== genId && deeper.depth === 2, JSON.stringify(deeper));
+await shot('18_deeper');
+// back to the first district, then save, quit, reload and prove it was not regenerated
+await S((id) => window.__twb.app.transition(id, 'from_parent'), genId);
+await waitRegion(genId);
+await page.keyboard.press('Escape');
+await wait(300);
+await page.getByText('Save & Exit to title').click();
+await page.waitForSelector('#title-screen');
+await page.reload();
+await page.waitForSelector('#title-screen', { timeout: 20000 });
+await page.getByRole('button', { name: /^Continue/ }).click();
+await wait(1200);
+const after = await S((id) => { const a = window.__twb.app; const r = a.data.world.generated[id]; return { region: a.world.def.id, hash: r.map.join('|').length + ':' + r.entities.length }; }, genId);
+check('reload resumes inside the generated district with identical geometry', after.region === genId && after.hash === mapHash, JSON.stringify(after));
+if (rubble) check('opened secret survives reload', await S((flag) => !!window.__twb.app.data.flags[flag] && window.__twb.app.world.grid.block !== null, rubble.action.slice(10)));
+const ladder = gen.ents.find((e) => e.kind === 'exit' && e.id.endsWith('_ladder_exit'));
+if (ladder) {
+  await nextTo(ladder.id);
+  await page.keyboard.press('e');
+  await waitRegion('region_surface_001', 6000);
+  const letter = ladder.target.entry.slice(8);
+  check('ladder climbs to the street and unbolts that manhole', await S((l) => !!window.__twb.app.data.flags[`manhole_${l}_open`], letter));
+  await nextTo(`street_manhole_${letter}_exit`);
+  await page.keyboard.press('e');
+  await wait(1800);
+  check('the manhole is now a shortcut back down', (await state()).region === genId);
+}
+
 // ---------------------------------------------------------------- B. death and recovery cache
 await S(() => window.__twb.app.transition('region_gallery_001', 'west'));
 await waitRegion('region_gallery_001');
@@ -249,7 +336,7 @@ check('death screen explains the cause', (await page.textContent('.death')).incl
 await page.getByText('Return to refuge').click();
 await wait(800);
 s = await state();
-check('respawned at last refuge with full health and a recovery cache', s.region === 'region_service_001' && s.hp === 100 && s.cache && s.cache.regionId === 'region_gallery_001' && s.weapons.includes('service_pistol'));
+check('respawned at last refuge with full health and a recovery cache', s.region === 'region_service_001' && s.hp === (await S(() => window.__twb.app.data.maxHp)) && s.cache && s.cache.regionId === 'region_gallery_001' && s.weapons.includes('service_pistol'));
 
 // ---------------------------------------------------------------- C. hidden tab pauses and releases input
 await page.keyboard.down('d');

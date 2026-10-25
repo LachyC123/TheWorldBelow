@@ -9,6 +9,7 @@ All runtime art is **original work generated in this repository** by `tools/art/
 | Props and pickups (~90 frames) | `public/assets/props.{png,json}` | `tools/art/props.ts` | Project-owned |
 | FX: muzzle flashes, glows, puffs, ripples, steam, markers | `public/assets/fx.{png,json}` | `tools/art/fx.ts` | Project-owned |
 | UI icons (19) | `public/assets/ui/*.png` | `tools/art/icons.ts` | Project-owned |
+| Exploration art: Watchman Drone, bolts, loose brickwork, live junction, manholes, ladder, survey map, finds, landmark set pieces (carriage, pews, roots, switchboard, great fan, boiler) | in `chars`, `props`, `fx` atlases | `tools/art/discovery.ts` | Project-owned |
 | Font: Pixelify Sans | via `@fontsource/pixelify-sans` 5.3.0 | Stefie Justprince | SIL OFL 1.1 |
 | Engine: Phaser 4.2.1 | npm | Phaser Studio | MIT |
 | Audio | synthesized at runtime (`src/audio/audio.ts`) | — | Project-owned |

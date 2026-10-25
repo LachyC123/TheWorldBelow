@@ -1,6 +1,72 @@
 # Project progress
 
-## Milestone: M0 + M1 + M2 — first playable slice (owner review requested)
+## Milestone: M3 — persistent generated frontier and exploration pass (current)
+**Owner direction (25 Oct 2026):** the feel is good, but don't let it turn into a linear game. Exploration and finding things should be the heart of it.
+
+### Implemented
+- **Many ways down from the street:**
+  - the laundrette hatch (authored)
+  - an open **storm drain** (needs the pistol first)
+  - three **manholes**, bolted from below until you find the ladder that opens each one
+  - the Cistern Hall's **south passage**
+  - the gallery's **east and south exits**
+- **Generated districts:** seeded, persistent, built from 13 authored room modules plus **6 unique landmarks**: The Flooded Chapel, The Fallen Carriage, The Great Fan, The Root Vault, The Switchboard Hall, The Boiler Heart.
+  - Three biome families: service veins, storm drains, pump works.
+  - Branching layouts with loops; each district has 1–2 onward exits, so the frontier keeps opening deeper.
+  - Districts get darker and more dangerous with depth.
+  - Once entered, a district is committed to your save and never regenerated.
+- **Things to find:**
+  - **Secret rooms** behind loose brickwork; the clue is lint drifting through the gaps.
+  - **24 unique curios** with short stories.
+  - **Upgrades:** 4 steadying tonics (+15 max health each), an extended magazine, a tight choke, a speed loader.
+  - **Survey maps** that chart a whole district.
+  - **Refuges** deep in the tunnels.
+  - Landmarks, recorded in the journal.
+- **Backtracking with purpose:**
+  - **Insulated gloves** are guaranteed in the first district you open. They let you disconnect **live junctions** that seal off vaults, including one in the Cistern Hall you'll have walked past at the start.
+  - Beating the Pipekeeper lets you force a **pressure-route shortcut** into the gallery.
+- **New enemy, the Watchman Drone:** sweeps a visible searchlight. Inside the beam it locks on (red beam, rising tone) and fires a slow red bolt you can dodge. Shots draw its light to you; breaking line of sight loses it.
+- **Map:** every place you've charted, with a pulsing **?** on each way onward you haven't taken.
+- **Journal:** a Finds section (curios, landmarks, hidden ways opened).
+- **Equipment:** lists tools and upgrades.
+- **Saves:** schema v2 with checksum-verified migration from v1, so the save on your phone carries over.
+
+### Tests actually run
+- `npm run test`: **61/61**, including:
+  - 1,200 generated districts (3 biomes × 4 entry sides × depths 1–5) all valid: reachable exits and refuges with gates closed, clear arrival, no creature within 7 tiles of the arrival point
+  - determinism
+  - a 40-district chain with no duplicate unique finds and the gloves first
+  - re-resolving a socket returns the committed district
+  - tampered districts rejected
+  - v1 → v2 save migration
+  - every room module's door rule
+- `npm run smoke`: **44/44** against the dev server and the **production build** (with the generation worker), on two different random worlds. The new frontier checks cover:
+  - the storm drain generating a committed district
+  - a secret wall opened and staying open
+  - finds collected
+  - a frontier exit generating a depth-2 district
+  - save → quit → reload resuming inside the district with identical geometry
+  - a ladder unbolting a manhole that then works as a shortcut back down
+- Lint, typecheck and build are clean.
+
+### Unverified
+- Real iPhone feel of the drone fights and long expeditions; save growth over hundreds of districts; thermal behaviour.
+
+### Known gaps
+- Generated rooms are more varied now but still simpler than the hand-built ones.
+- Only the three tunnel biomes exist so far. The bigger region families (Last Platform, Drowned Ward, gardens), NPCs, the Foundation and the reveal are still ahead.
+- Sound is still synthesized. Map custom markers are not built.
+
+### Next actions
+1. Owner plays the link: try the storm drain, look for draughty brickwork, find the gloves, come back for the junction in the Cistern Hall.
+2. Next pass ideas, pending your feedback:
+   - a first new region family (Last Platform), with its NPC and a station-signal mystery
+   - more room modules and set pieces per biome
+   - map markers and a journal hint ladder
+
+---
+
+## Milestone: M0 + M1 + M2 — first playable slice
 **Build:** branch `claude/m0-m2-slice`. The build SHA is shown on the title screen.
 
 ### Implemented (playable now)

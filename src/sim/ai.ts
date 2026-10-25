@@ -10,6 +10,7 @@ import { updateKeeper } from './keeper.ts';
 export const SKITTER = { hp: 40, speed: 62, telegraph: 0.62, lungeTime: 0.3, lungeSpeed: 200, recover: 0.7, damage: 14, sight: 150, sightDark: 100, attackRange: 54 };
 export const LEECH = { hp: 30, drift: 34, exposure: 0.8, swell: 0.55, drainPerSecond: 7 };
 export const KEEPER_HP = 480;
+export const DRONE = { hp: 50, range: 130, half: 0.3, lock: 0.7, cool: 1.15, boltSpeed: 125, damage: 16, patrolSpeed: 18 };
 
 export function createEnemy(def: EnemyDef, w: World): EnemyState {
   const x = def.tx * 16 + 8;
@@ -53,6 +54,9 @@ export function createEnemy(def: EnemyDef, w: World): EnemyState {
   if (def.activeWhen) base.active = w.cond(def.activeWhen);
   if (def.type === 'leech') {
     Object.assign(base, { hp: LEECH.hp, maxHp: LEECH.hp, hw: 4, hh: 10, radius: 7 });
+  } else if (def.type === 'drone') {
+    Object.assign(base, { hp: DRONE.hp, maxHp: DRONE.hp, hw: 5, hh: 14, radius: 8, state: 'sweep', meter: w.rng.range(-Math.PI, Math.PI), aux: w.rng.range(0, 6) });
+    base.angle = base.meter;
   } else if (def.type === 'keeper') {
     Object.assign(base, { hp: KEEPER_HP, maxHp: KEEPER_HP, hw: 14, hh: 14, radius: 17, state: 'dormant', active: false, cooldown: 2, cd2: 0 });
   } else {
@@ -88,6 +92,7 @@ export function updateEnemy(e: EnemyState, w: World): void {
   }
   if (e.type === 'skitter') updateSkitter(e, w);
   else if (e.type === 'leech') updateLeech(e, w);
+  else if (e.type === 'drone') updateDrone(e, w);
 }
 
 function separate(e: EnemyState, w: World): void {
@@ -292,10 +297,117 @@ function updateLeech(e: EnemyState, w: World): void {
   }
 }
 
+/** Is the player inside the drone's searchlight (and visible to it)? */
+export function inBeam(e: EnemyState, w: World, half: number): boolean {
+  const p = w.player;
+  if (!p.alive) return false;
+  const ex = e.x;
+  const ey = e.y - e.hh;
+  const d = Math.hypot(p.x - ex, p.y - 8 - ey);
+  if (d > DRONE.range) return false;
+  const diff = Math.abs(wrap(Math.atan2(p.y - 8 - ey, p.x - ex) - e.angle));
+  if (diff > half && d > 18) return false;
+  return w.grid.clear(w.grid.light, ex, ey, p.x, p.y - 8);
+}
+
+function wrap(a: number): number {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
+function turnToward(e: EnemyState, target: number, rate: number): void {
+  const d = wrap(target - e.angle);
+  e.angle = wrap(e.angle + Math.max(-rate * DT, Math.min(rate * DT, d)));
+}
+
+/**
+ * Watchman Drone: sweeps a visible searchlight. Inside the beam it locks on (red beam, rising
+ * tone), then fires a slow bolt you can dodge. Break line of sight or leave the beam to lose it.
+ */
+function updateDrone(e: EnemyState, w: World): void {
+  const p = w.player;
+  const toP = Math.atan2(p.y - 8 - (e.y - e.hh), p.x - e.x);
+  e.t -= DT;
+  e.aux += DT;
+  e.face = Math.cos(e.angle) >= 0 ? 1 : -1;
+  const lock = (): void => {
+    e.state = 'lock';
+    e.t = DRONE.lock;
+    e.alerted = true;
+    w.emit({ type: 'EnemyTelegraph', id: e.id, enemy: 'drone', attack: 'bolt', x: e.x, y: e.y, angle: toP, duration: DRONE.lock });
+  };
+  switch (e.state) {
+    case 'sweep': {
+      e.angle = wrap(e.meter + Math.sin(e.aux * 0.9) * 1.1);
+      const tx = e.homeX + Math.cos(e.aux * 0.35) * 26;
+      const ty = e.homeY + Math.sin(e.aux * 0.35) * 14;
+      const dx = tx - e.x;
+      const dy = ty - e.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1) w.moveBox(e, (dx / d) * DRONE.patrolSpeed * DT, (dy / d) * DRONE.patrolSpeed * DT, e.hw, 4, w.grid.shot);
+      if (inBeam(e, w, DRONE.half)) {
+        if (!e.alerted) w.emit({ type: 'EnemyAlerted', id: e.id, enemy: 'drone', x: e.x, y: e.y });
+        lock();
+      }
+      break;
+    }
+    case 'lock':
+      turnToward(e, toP, 3);
+      e.seenX = p.x;
+      e.seenY = p.y;
+      if (!inBeam(e, w, 0.55)) {
+        e.state = 'search';
+        e.t = 2.2;
+        break;
+      }
+      if (e.t <= 0) {
+        w.emit({ type: 'EnemyAttack', id: e.id, enemy: 'drone', attack: 'bolt', x: e.x, y: e.y - e.hh, angle: e.angle });
+        w.fireBolt(e.x + Math.cos(e.angle) * 6, e.y - e.hh + 4 + Math.sin(e.angle) * 6, toP, DRONE.boltSpeed, DRONE.damage);
+        e.state = 'cool';
+        e.t = DRONE.cool;
+      }
+      break;
+    case 'cool':
+      turnToward(e, toP, 2);
+      if (e.t <= 0) {
+        if (inBeam(e, w, DRONE.half + 0.1)) lock();
+        else {
+          e.state = 'search';
+          e.t = 2;
+        }
+      }
+      break;
+    case 'search': {
+      const base = Math.atan2(e.seenY - 8 - (e.y - e.hh), e.seenX - e.x);
+      e.angle = wrap(base + Math.sin(e.aux * 2.2) * 0.8);
+      const dx = e.seenX - e.x;
+      const dy = e.seenY - e.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 30) w.moveBox(e, (dx / d) * 26 * DT, (dy / d) * 26 * DT, e.hw, 4, w.grid.shot);
+      if (inBeam(e, w, DRONE.half)) lock();
+      else if (e.t <= 0) {
+        e.state = 'sweep';
+        e.meter = e.angle;
+        e.aux = 0;
+      }
+      break;
+    }
+  }
+}
+
 /** Authoritative damage application (exactly once per projectile hit). */
 export function damageEnemy(e: EnemyState, w: World, amount: number, hx: number, hy: number, angle: number, knockback: number, source: WeaponId | string): void {
   if (e.dead) return;
-  let material: 'flesh' | 'jelly' | 'metal' = e.type === 'leech' ? 'jelly' : e.type === 'keeper' ? 'metal' : 'flesh';
+  let material: 'flesh' | 'jelly' | 'metal' = e.type === 'leech' ? 'jelly' : e.type === 'keeper' || e.type === 'drone' ? 'metal' : 'flesh';
+  if (e.type === 'drone' && (e.state === 'sweep' || e.state === 'search')) {
+    // being shot reveals you: it swings its light toward the shooter
+    e.angle = Math.atan2(w.player.y - 8 - (e.y - e.hh), w.player.x - e.x);
+    e.state = 'lock';
+    e.t = DRONE.lock;
+    e.alerted = true;
+    w.emit({ type: 'EnemyTelegraph', id: e.id, enemy: 'drone', attack: 'bolt', x: e.x, y: e.y, angle: e.angle, duration: DRONE.lock });
+  }
   if (e.type === 'keeper') {
     if (e.state === 'stunned') {
       amount *= 1.5;

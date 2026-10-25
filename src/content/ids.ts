@@ -18,6 +18,8 @@ export const F = {
   returnLiftPowered: 'return_lift_powered',
   sliceComplete: 'slice_complete',
   darkTipShown: 'tip_dark_shown',
+  serviceJunctionOpen: 'service_junction_open',
+  pressureRouteOpen: 'pressure_route_open',
 } as const;
 
 export const REGIONS = {

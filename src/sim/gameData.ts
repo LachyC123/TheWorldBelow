@@ -1,7 +1,8 @@
 // Persistent player/world state: exactly what a save stores (plus envelope metadata).
 import type { AmmoPool, WeaponId } from '../content/ids.ts';
 import { REGIONS } from '../content/ids.ts';
-import { WEAPONS } from '../content/weapons.ts';
+import { weaponStats } from './weaponStats.ts';
+import type { GeneratedRegionRecord } from '../world/generator.ts';
 
 export interface RegionDelta {
   /** unique pickups collected */
@@ -44,6 +45,40 @@ export interface GameData {
   cache: RecoveryCache | null;
   playSeconds: number;
   deaths: number;
+  /** the persistent generated frontier */
+  world: WorldLedger;
+  /** what the player has found */
+  finds: Finds;
+}
+
+export interface WorldLedger {
+  seed: string;
+  /** materialized generated districts, keyed by region id (never regenerated once committed) */
+  generated: Record<string, GeneratedRegionRecord>;
+  /** socket id -> committed region id */
+  sockets: Record<string, string>;
+  seenModules: Record<string, number>;
+  /** unique content already placed in this world (curios, upgrades, landmarks, tools) */
+  uniques: string[];
+  names: string[];
+  /** street manhole letter -> generated region that opens it from below */
+  manholes: Record<string, string>;
+  districts: number;
+}
+
+export interface Finds {
+  curios: string[];
+  upgrades: string[];
+  landmarks: string[];
+  secrets: number;
+}
+
+export function newWorldLedger(seed: string): WorldLedger {
+  return { seed, generated: {}, sockets: {}, seenModules: {}, uniques: [], names: [], manholes: {}, districts: 0 };
+}
+
+export function newFinds(): Finds {
+  return { curios: [], upgrades: [], landmarks: [], secrets: 0 };
 }
 
 export const REFUGE_BASELINE: Record<AmmoPool, number> = { light_rounds: 24, shells: 4 };
@@ -73,6 +108,8 @@ export function newGameData(): GameData {
     cache: null,
     playSeconds: 0,
     deaths: 0,
+    world: newWorldLedger(`world-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`),
+    finds: newFinds(),
   };
 }
 
@@ -87,6 +124,6 @@ export function regionDelta(data: GameData, regionId: string): RegionDelta {
 
 export function giveWeapon(data: GameData, id: WeaponId): void {
   if (!data.weapons.includes(id)) data.weapons.push(id);
-  data.mag[id] = WEAPONS[id].magazine;
+  data.mag[id] = weaponStats(id, data.capabilities).magazine;
   data.activeWeapon = data.weapons.indexOf(id);
 }
