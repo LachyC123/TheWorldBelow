@@ -6,6 +6,8 @@ import { Cell, type Grid } from '../sim/grid.ts';
 export interface TileLayers {
   floor: number[][];
   walls: number[][];
+  /** sea water drawn over tidal cells (class 1 and class 2), -1 elsewhere; null if no tide */
+  tide: [number[][], number[][]] | null;
 }
 
 export function buildTileLayers(def: RegionDef, grid: Grid): TileLayers {
@@ -22,7 +24,8 @@ export function buildTileLayers(def: RegionDef, grid: Grid): TileLayers {
         fr.push(cd.floor);
         wr.push(-1);
       } else if ('water' in cd) {
-        fr.push(cellAt(x, y - 1) === Cell.Water ? Floor.WATER : Floor.WATER_EDGE);
+        if (cd.deep) fr.push(Floor.DEEP_WATER);
+        else fr.push(cellAt(x, y - 1) === Cell.Water ? Floor.WATER : Floor.WATER_EDGE);
         wr.push(-1);
       } else if ('void' in cd) {
         fr.push(Floor.VOID);
@@ -50,7 +53,20 @@ export function buildTileLayers(def: RegionDef, grid: Grid): TileLayers {
     floor.push(fr);
     walls.push(wr);
   }
-  return { floor, walls };
+  let tide: TileLayers['tide'] = null;
+  if (grid.hasTide) {
+    const layer = (cls: number): number[][] =>
+      Array.from({ length: grid.h }, (_, y) =>
+        Array.from({ length: grid.w }, (_, x) => {
+          if (grid.tidal[y * grid.w + x] !== cls) return -1;
+          const above = y > 0 ? grid.tidal[(y - 1) * grid.w + x]! : 0;
+          // a foam line where the tide meets land or a shallower shoal
+          return above === 0 && cellAt(x, y - 1) !== Cell.Water ? Floor.TIDE_FOAM : Floor.TIDE_WATER;
+        }),
+      );
+    tide = [layer(1), layer(2)];
+  }
+  return { floor, walls, tide };
 }
 
 function hash(x: number, y: number): number {

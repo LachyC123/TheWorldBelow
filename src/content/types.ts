@@ -13,7 +13,11 @@ export type Condition =
   | { type: 'all'; conditions: Condition[] }
   | { type: 'any'; conditions: Condition[] };
 
-export type CellDef = { floor: FloorKind } | { wall: WallStyleId } | { water: true } | { void: true };
+/**
+ * `tidal` floors are covered by the sea at high tide: 1 = exposed at every low tide,
+ * 2 = exposed only at the deepest (spring) ebb. `deep` water is drawn as open sea.
+ */
+export type CellDef = { floor: FloorKind; tidal?: 1 | 2 } | { wall: WallStyleId } | { water: true; deep?: true } | { void: true };
 
 export interface EntryPoint {
   /** tile coordinates of the arrival spot */
@@ -69,6 +73,8 @@ export interface PropDef extends EntityBase {
   visibleWhen?: Condition;
   /** collision only while condition holds (gates); uses `solid` footprint */
   solidWhen?: Condition;
+  /** self-lit: drawn above the darkness (distant lit vistas, signage) */
+  lit?: boolean;
 }
 
 export type ActionId = string;
@@ -164,7 +170,14 @@ export interface EmitterDef {
   boost?: { when: Condition; factor: number };
 }
 
-export type AmbienceId = 'rain' | 'room' | 'tunnel' | 'gallery' | 'pipeworks';
+export type AmbienceId = 'rain' | 'room' | 'tunnel' | 'gallery' | 'pipeworks' | 'station' | 'sea';
+
+/** A recurring public-address line (always subtitled; the board/lamps show it visually too). */
+export interface Announcement {
+  when?: Condition;
+  speaker: string;
+  text: string;
+}
 
 export interface RegionDef {
   id: RegionId;
@@ -185,4 +198,8 @@ export interface RegionDef {
   discoverTitle?: string;
   refuge?: { id: StableId; entry: StableId };
   emitters?: EmitterDef[];
+  /** periodic announcements (seconds between, lines chosen by condition) */
+  announce?: { every: number; lines: Announcement[] };
+  /** region runs the tide cycle over its tidal cells */
+  tide?: boolean;
 }

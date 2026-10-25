@@ -1,8 +1,8 @@
 import { MapBuilder } from '../mapBuilder.ts';
 import { Floor, WallStyle } from '../tiles.ts';
 import type { EntityDef, RegionDef, StaticLight } from '../types.ts';
-import { F, REGIONS } from '../ids.ts';
-import { flag, px, seq } from '../cond.ts';
+import { F, OBS, REGIONS } from '../ids.ts';
+import { flag, not, px, seq } from '../cond.ts';
 
 // Two-screen-wide pumping gallery: entry alcove, three pump cover masses, water channel,
 // observable but unreachable balcony, the relay objective and the humming-wall secret.
@@ -55,7 +55,17 @@ const entities: EntityDef[] = [
   // Unreachable balcony glimpsed above the north wall
   ...[24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37].map((x): EntityDef => ({ kind: 'prop', id: `balcony_rail_${x}`, tx: x, ty: 3, frame: 'railing', oy: 2 })),
   { kind: 'prop', id: 'balcony_locker', tx: 33, ty: 2, frame: 'locker', oy: 2 },
-  { kind: 'prop', id: 'balcony_door', tx: 30, ty: 1, frame: 'door_metal_closed', wall: true },
+  { kind: 'prop', id: 'balcony_door', tx: 30, ty: 1, frame: 'door_metal_closed', wall: true, alt: { when: flag(`seen_${REGIONS.station}`), frame: 'door_metal_open' } },
+  { kind: 'exit', id: 'balcony_to_gantry', tx: 30, ty: 2, w: 1, h: 1, auto: false, verb: 'Cross', label: 'Signal gantry', target: { region: REGIONS.station, entry: 'gantry' } },
+  { kind: 'pickup', id: 'pickup_balcony_shells', tx: 34, ty: 2, item: 'shells', amount: 6 },
+  // the chained ladder: visible from the floor, lowered only from the balcony
+  { kind: 'prop', id: 'balcony_ladder_chained', tx: 27, ty: 2, frame: 'ladder_chained', visibleWhen: not(F.galleryLadderDown) },
+  { kind: 'prop', id: 'balcony_ladder_down', tx: 27, ty: 5, frame: 'ladder_down', wall: true, oy: 14, visibleWhen: flag(F.galleryLadderDown) },
+  { kind: 'interact', id: 'balcony_ladder_lower', tx: 27, ty: 3, verb: 'Lower', label: 'Chained ladder', action: 'lower_ladder', hideWhen: flag(F.galleryLadderDown) },
+  { kind: 'exit', id: 'balcony_ladder_descend', tx: 27, ty: 3, w: 1, h: 1, auto: false, verb: 'Climb down', label: 'Ladder', gate: flag(F.galleryLadderDown), target: { region: REGIONS.gallery, entry: 'ladder_foot' } },
+  { kind: 'exit', id: 'gallery_ladder_climb', tx: 27, ty: 6, w: 1, h: 1, auto: false, verb: 'Climb', label: 'Ladder to the balcony', gate: flag(F.galleryLadderDown), lockedText: 'ladder_out_of_reach', target: { region: REGIONS.gallery, entry: 'ladder_top' } },
+  { kind: 'trigger', id: 'gallery_chain_seen', tx: 25, ty: 6, w: 5, h: 2, action: `observe:${OBS.balconyChain}`, once: true },
+  { kind: 'trigger', id: 'gallery_relay_seen', tx: 43, ty: 6, w: 8, h: 4, action: `observe:${OBS.relayDark}`, once: true },
   // Relay objective and return lift
   { kind: 'prop', id: 'gallery_relay', tx: 47, ty: 6, frame: 'relay_off', solid: { w: 2, h: 1 }, alt: { when: flag(F.relayReconnected), anim: seq('relay_on', 3, 6) }, glow: { radius: 18, color: [120, 255, 200], dy: -24, when: flag(F.relayReconnected) } },
   { kind: 'interact', id: 'gallery_relay_use', tx: 47, ty: 7, w: 2, verb: 'Reconnect', label: 'Gallery relay', action: 'reconnect_relay', hideWhen: flag(F.relayReconnected) },
@@ -110,6 +120,9 @@ export const gallery: RegionDef = {
     east: { tx: 57, ty: 16, face: 'left' },
     south: { tx: 40, ty: 25, face: 'up' },
     pressure: { tx: 36, ty: 7, face: 'down' },
+    balcony: { tx: 30, ty: 3, face: 'down' },
+    ladder_top: { tx: 26, ty: 3, face: 'right' },
+    ladder_foot: { tx: 27, ty: 7, face: 'down' },
   },
   discoverTitle: 'Pumping Gallery',
   lights: [

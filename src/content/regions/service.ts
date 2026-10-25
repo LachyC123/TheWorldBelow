@@ -1,8 +1,8 @@
 import { MapBuilder } from '../mapBuilder.ts';
 import { Floor, WallStyle } from '../tiles.ts';
 import type { EntityDef, RegionDef } from '../types.ts';
-import { F, REGIONS } from '../ids.ts';
-import { flag, not, px } from '../cond.ts';
+import { F, OBS, REGIONS } from '../ids.ts';
+import { any, flag, not, px } from '../cond.ts';
 
 const m = new MapBuilder(48, 28)
   .carve(2, 2, 4, 3, '.')
@@ -59,6 +59,12 @@ const entities: EntityDef[] = [
   { kind: 'pickup', id: 'service_store_curio', tx: 3, ty: 17, item: 'curio', amount: 1, ref: 'curio_rota_card' },
   { kind: 'pickup', id: 'service_store_shells', tx: 1, ty: 17, item: 'shells', amount: 6 },
   { kind: 'prop', id: 'service_store_shelf', tx: 4, ty: 14, frame: 'shelf_junk', solid: { w: 1, h: 1 } },
+  // STAFF ONLY: a maglocked door to the old station, dead until something powers the lock
+  { kind: 'prop', id: 'service_staff_door', tx: 40, ty: 15, frame: 'staff_door_closed', wall: true, alt: { when: any(flag(F.relayReconnected), flag(F.stationStaffOpen)), frame: 'staff_door_open' } },
+  { kind: 'prop', id: 'service_maglock', tx: 41, ty: 15, frame: 'maglock_off', wall: true, oy: -6, alt: { when: any(flag(F.relayReconnected), flag(F.stationStaffOpen)), frame: 'maglock_on' }, glow: { radius: 8, color: [150, 255, 220], dy: -9, when: any(flag(F.relayReconnected), flag(F.stationStaffOpen)) } },
+  { kind: 'exit', id: 'service_to_station', tx: 40, ty: 16, w: 1, h: 1, auto: false, verb: 'Open', label: 'STAFF ONLY door', gate: any(flag(F.relayReconnected), flag(F.stationStaffOpen)), lockedText: 'staff_locked', target: { region: REGIONS.station, entry: 'staff' } },
+  { kind: 'trigger', id: 'service_staff_seen', tx: 37, ty: 16, w: 7, h: 2, action: `observe:${OBS.staffDoor}`, once: true },
+  { kind: 'trigger', id: 'service_cable_seen', tx: 14, ty: 5, w: 1, h: 6, action: `observe:${OBS.amberCable}`, once: true },
   { kind: 'exit', id: 'service_to_gallery', tx: 47, ty: 16, w: 1, h: 2, auto: true, target: { region: REGIONS.gallery, entry: 'west' } },
 ];
 
@@ -89,6 +95,7 @@ export const service: RegionDef = {
     booth: { tx: 20, ty: 4, face: 'down' },
     east: { tx: 46, ty: 16, face: 'left' },
     south: { tx: 22, ty: 24, face: 'up' },
+    staff: { tx: 40, ty: 17, face: 'down' },
   },
   discoverTitle: 'Service Veins',
   lights: [

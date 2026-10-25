@@ -34,6 +34,9 @@ export const CURIOS: CurioDef[] = [
   { id: 'curio_seed_packet', title: 'Seed packet', text: '“Bellglass — sow in darkness, harvest by ear.” The seeds inside ring faintly when shaken.', biomes: [] },
   { id: 'curio_logbook', title: 'Lift logbook', text: 'Floors listed 1 to 9, then a ruled line, then floors that were never given numbers.', biomes: [] },
   { id: 'curio_compass', title: 'Stubborn compass', text: 'The needle ignores north. It points, steadily, down.', biomes: [] },
+  { id: 'curio_platform_pass', title: 'Platform Zero pass', text: 'A staff pass for a platform with no number above zero. Valid “until the tide forgets”. Signed O. Vale.', biomes: [] },
+  { id: 'curio_bell_clapper', title: 'Spare bell clapper', text: 'Heavy brass, wrapped in oilcloth and left on the causeway, where only the deepest ebb would ever let anyone find it.', biomes: [] },
+  { id: 'curio_tide_table', title: 'Edda’s tide table', text: 'Thirty years of ebbs in her handwriting. Every third one is circled, and beside the last circle: “the hatch sticks, lift from the left”.', biomes: [] },
   { id: 'curio_wedding_ring', title: 'Wedding ring', text: 'Engraved inside: “E. & J. — forever, and further”.', biomes: [] },
 ];
 
@@ -56,7 +59,7 @@ export const UPGRADES: UpgradeDef[] = [
 
 export const TONIC_HP = 15;
 /** Unique finds placed by hand in authored regions; the generator never places these. */
-export const AUTHORED_UNIQUES = ['tonic_4', 'curio_rota_card', 'curio_badge'];
+export const AUTHORED_UNIQUES = ['tonic_4', 'curio_rota_card', 'curio_badge', 'curio_platform_pass', 'curio_bell_clapper', 'curio_tide_table'];
 export const CAP_GLOVES = 'insulated_gloves';
 
 export const UPGRADE_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));

@@ -6,6 +6,8 @@ import type { GameData } from '../sim/gameData.ts';
 import { findRegion } from '../content/registry.ts';
 import { CURIO_BY_ID, UPGRADE_BY_ID } from '../content/discoveries.ts';
 import { JOURNAL } from '../content/story.ts';
+import { QUESTIONS, hintFlag, type QuestionDef } from '../content/questions.ts';
+import { evaluate, type ConditionContext } from '../sim/conditions.ts';
 import { TILE } from '../content/tiles.ts';
 import { Cell, Grid } from '../sim/grid.ts';
 
@@ -30,6 +32,20 @@ export function fmtTime(sec: number): string {
   const m = Math.floor(sec / 60);
   const hh = Math.floor(m / 60);
   return hh > 0 ? `${hh}h ${m % 60}m` : `${m}m ${Math.floor(sec % 60)}s`;
+}
+
+/** Condition context over saved data (menus evaluate journal questions without a World). */
+export function dataContext(data: GameData): ConditionContext {
+  return {
+    flag: (id) => data.flags[id] === true,
+    hasCapability: (id) => data.capabilities.includes(id),
+    hasWeapon: (id) => (data.weapons as string[]).includes(id),
+  };
+}
+
+export function openQuestions(data: GameData): QuestionDef[] {
+  const ctx = dataContext(data);
+  return QUESTIONS.filter((q) => evaluate(q.opens, ctx) && !evaluate(q.resolves, ctx));
 }
 
 export class Screens {
@@ -208,12 +224,14 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- pause
-  pause(opts: { objective: string; onResume: () => void; onMap: () => void; onJournal: () => void; onEquipment: () => void; onSettings: () => void; onControls: () => void; onExport: () => void; onSaveExit: () => void; readOnly: boolean }): void {
+  pause(opts: { questions: string[]; onResume: () => void; onMap: () => void; onJournal: () => void; onEquipment: () => void; onSettings: () => void; onControls: () => void; onExport: () => void; onSaveExit: () => void; readOnly: boolean }): void {
     const card = h(
       'div',
       { class: 'card' },
       h('h2', {}, 'Paused'),
-      h('p', {}, opts.objective),
+      opts.questions.length
+        ? h('div', { class: 'pause-questions' }, h('small', {}, 'On your mind'), ...opts.questions.map((q) => h('p', {}, q)))
+        : h('p', {}, 'Nothing pressing. The tunnels go everywhere.'),
       opts.readOnly ? h('p', { class: 'err' }, 'This save is open in another tab — progress here is not being saved.') : null,
       h(
         'div',
@@ -266,24 +284,44 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- journal
-  journal(data: GameData, onBack: () => void): void {
+  journal(data: GameData, onBack: () => void, onHint?: (flag: string) => void): void {
+    const ctx = dataContext(data);
     const entries = data.journal.map((id) => JOURNAL[id]).filter((e): e is NonNullable<typeof e> => !!e);
-    const section = (title: string, kind: 'lead' | 'clue' | 'resolved'): HTMLElement | null => {
-      const list = entries.filter((e) => e.kind === kind);
-      if (!list.length) return null;
-      return h('div', { class: 'journal-section' }, h('h3', {}, title), ...list.map((e) => h('div', { class: `journal-entry ${kind}` }, h('b', {}, e.title), h('span', {}, e.text))));
+    const open = QUESTIONS.filter((q) => evaluate(q.opens, ctx) && !evaluate(q.resolves, ctx));
+    const answered = QUESTIONS.filter((q) => evaluate(q.opens, ctx) && evaluate(q.resolves, ctx));
+    const body = h('div');
+    const render = (): void => {
+      const parts: Child[] = [
+        open.length || answered.length || entries.length ? '' : h('p', {}, 'Nothing written yet.'),
+        open.length ? h('div', { class: 'journal-section' }, h('h3', {}, 'Open questions'), ...open.map((q) => question(q))) : null,
+        answered.length
+          ? h('div', { class: 'journal-section' }, h('h3', {}, 'Answered'), ...answered.map((q) => h('div', { class: 'journal-entry resolved' }, h('b', {}, q.title), h('span', {}, (q.answers.find((a) => evaluate(a.when, ctx)) ?? q.answers[q.answers.length - 1]!).text))))
+          : null,
+        entries.length ? h('div', { class: 'journal-section' }, h('h3', {}, 'Notes'), ...entries.map((e) => h('div', { class: `journal-entry ${e.kind}` }, h('b', {}, e.title), h('span', {}, e.text)))) : null,
+        findsSection(data),
+      ];
+      body.replaceChildren(...parts.filter((c): c is Node | string => !!c));
     };
-    const card = h(
-      'div',
-      { class: 'card wide' },
-      h('h2', {}, 'Journal'),
-      entries.length ? null : h('p', {}, 'Nothing written yet.'),
-      section('Current leads', 'lead'),
-      section('Observations', 'clue'),
-      section('Resolved', 'resolved'),
-      findsSection(data),
-      h('div', { class: 'btns row', style: 'margin-top:12px' }, btn('Back', onBack, 'primary')),
-    );
+    const question = (q: QuestionDef): HTMLElement => {
+      const seen = q.evidence.filter((e) => evaluate(e.when, ctx));
+      const shown = [1, 2, 3].filter((t) => data.flags[hintFlag(q.id, t)]);
+      const next = shown.length < 3 ? shown.length + 1 : 0;
+      return h(
+        'div',
+        { class: 'journal-entry question' },
+        h('b', {}, q.title),
+        h('ul', { class: 'evidence' }, ...seen.map((e) => h('li', {}, e.text))),
+        ...shown.map((t) => h('p', { class: `hint tier${t}` }, h('small', {}, `Hint ${t}`), q.hints[t - 1]!)),
+        next && onHint
+          ? btn(next === 1 ? 'Hint' : next === 3 ? 'Spell it out' : 'Clearer hint', () => {
+              onHint(hintFlag(q.id, next));
+              render();
+            }, 'small hintbtn')
+          : null,
+      );
+    };
+    render();
+    const card = h('div', { class: 'card wide' }, h('h2', {}, 'Journal'), body, h('div', { class: 'btns row', style: 'margin-top:12px' }, btn('Back', onBack, 'primary')));
     this.push(this.screen(card));
   }
 
@@ -350,7 +388,17 @@ export class Screens {
             ctx.fillStyle = '#ffc867';
             ctx.font = `${Math.max(8, s * 1.6)}px Pixelify Sans, monospace`;
             ctx.fillText('?', view.ox + (e.tx + 0.2) * s, view.oy + (e.ty + 0.9) * s);
-          } else mark(e.tx, e.ty, '#e39a3c');
+          } else {
+            mark(e.tx, e.ty, '#e39a3c');
+            // known ways out are signed with where they lead: reliable routes home
+            const dest = tr.startsWith('gen:') ? data.world.sockets[tr.slice(4)] : tr.startsWith('manhole:') ? data.world.manholes[tr.slice(8)] : tr;
+            const name = dest && dest !== region ? findRegion(dest)?.name : undefined;
+            if (name && bits[e.ty * grid.w + e.tx] && s >= 4) {
+              ctx.fillStyle = 'rgba(220,214,198,0.85)';
+              ctx.font = `${Math.max(9, Math.round(s * 1.3))}px Pixelify Sans, monospace`;
+              ctx.fillText(`→ ${name}`, view.ox + (e.tx + 1.4) * s, view.oy + (e.ty + 0.9) * s);
+            }
+          }
         }
         if (e.kind === 'interact' && e.action === 'rest_refuge') mark(e.tx, e.ty, '#ffc867', 1.6);
       }

@@ -5,7 +5,10 @@ import { getRegion, findRegion } from '../content/registry.ts';
 import { Frontier } from '../world/frontier.ts';
 import { CURIO_BY_ID, UPGRADE_BY_ID } from '../content/discoveries.ts';
 import { DIALOGUE, JOURNAL, type Line } from '../content/story.ts';
-import { F, REGIONS } from '../content/ids.ts';
+import { F, OBS, REGIONS, seenFlag } from '../content/ids.ts';
+import { QUESTIONS } from '../content/questions.ts';
+import { tideAt } from '../sim/tide.ts';
+import { evaluate } from '../sim/conditions.ts';
 import { TILE } from '../content/tiles.ts';
 import type { RegionDef } from '../content/types.ts';
 import { World, DT } from '../sim/world.ts';
@@ -15,7 +18,7 @@ import type { Face } from '../sim/types.ts';
 import { WorldScene } from '../render/WorldScene.ts';
 import { InputController } from '../ui/input.ts';
 import { Hud, Dialogue } from '../ui/hud.ts';
-import { Screens, fmtTime, h } from '../ui/screens.ts';
+import { Screens, fmtTime, h, openQuestions } from '../ui/screens.ts';
 import { AudioEngine } from '../audio/audio.ts';
 import { saveSettings, type Settings } from './settings.ts';
 import { SaveRepository } from '../save/repository.ts';
@@ -23,7 +26,7 @@ import { makeEnvelope, parseImport, GAME_BUILD, type SaveEnvelope } from '../sav
 
 type Mode = 'boot' | 'title' | 'play' | 'pause' | 'dialogue' | 'transition' | 'dead';
 
-const REFUGE_NAMES: Record<string, string> = { refuge_home: 'Home', refuge_relay_booth: 'Relay booth' };
+const REFUGE_NAMES: Record<string, string> = { refuge_home: 'Home', refuge_relay_booth: 'Relay booth', refuge_signal_cabin: 'Signal cabin' };
 const MAX_STEPS = 5;
 const AUTOSAVE_SECONDS = 10;
 
@@ -44,6 +47,10 @@ export class GameApp {
   private frameTimes: number[] = [];
   private statsT = 0;
   private cameraFocus: { x: number; y: number } | null = null;
+  /** a short scripted look at something (reveals); cleared when its time runs out */
+  private lookT = 0;
+  private announceT = 0;
+  private announceIdx = 0;
   private readonly hud = new Hud();
   private readonly dialogue = new Dialogue();
   private readonly screens = new Screens();
@@ -336,6 +343,8 @@ export class GameApp {
     if (this.world && this.world.data === data) this.flushWorld();
     const def = getRegion(regionId);
     data.regionId = def.id;
+    if (!def.id.startsWith('gen_')) data.flags[seenFlag(def.id)] = true;
+    this.announceT = 6;
     this.world = new World(def, data, spawn);
     this.scene.buildRegion(this.world);
     this.audio.setAmbience(def.ambience);
@@ -417,6 +426,11 @@ export class GameApp {
       this.autosaveT += dt;
       if (this.autosaveT > AUTOSAVE_SECONDS && this.world.player.alive) void this.save('auto');
       this.homeIntercom(dt);
+      this.announcements(dt);
+      if (this.lookT > 0) {
+        this.lookT -= dt;
+        if (this.lookT <= 0) this.cameraFocus = null;
+      }
       if (!this.world.player.alive) {
         this.deathT += dt;
         if (this.deathT > 1.6) this.showDeath();
@@ -461,6 +475,27 @@ export class GameApp {
     }
   }
 
+  /** Public-address lines: chime, subtitle, and the departure board shows the same state. */
+  private announcements(dt: number): void {
+    const w = this.world!;
+    const a = w.def.announce;
+    if (!a || this.mode !== 'play') return;
+    this.announceT -= dt;
+    if (this.announceT > 0) return;
+    this.announceT = a.every;
+    const lines = a.lines.filter((l) => w.cond(l.when));
+    const line = lines[this.announceIdx++ % Math.max(1, lines.length)];
+    if (!line) return;
+    this.audio.play('chime');
+    this.hud.subtitle(line.speaker, line.text, 7);
+    if (!this.data.flags[F.section9Live]) this.setFlag(OBS.zeroAnnounce);
+  }
+
+  private look(x: number, y: number, seconds: number): void {
+    this.cameraFocus = { x, y };
+    this.lookT = seconds;
+  }
+
   private cueAt(wx: number, wy: number, icon: 'ear' | 'fire'): void {
     const cam = this.scene.cameras.main;
     const rect = this.canvasEl.getBoundingClientRect();
@@ -490,7 +525,7 @@ export class GameApp {
             this.data.flags[`${ev.entry}_open`] = true;
             this.hud.toast('You unbolt the manhole from below: a new way down from the street.');
           }
-          const lift = ev.region === REGIONS.street && w.def.id === REGIONS.gallery || ev.region === REGIONS.gallery && w.def.id === REGIONS.street;
+          const lift = (ev.region === REGIONS.street && w.def.id === REGIONS.gallery) || (ev.region === REGIONS.gallery && w.def.id === REGIONS.street) || ev.entry === 'lift' || ev.entry === 'shaft' || ev.entry === 'shaft_top';
           this.transition(ev.region, ev.entry, lift);
           break;
         }
@@ -502,6 +537,20 @@ export class GameApp {
           break;
         case 'CacheRecovered':
           this.hud.toast('Recovered your dropped supplies.');
+          break;
+        case 'TideBell':
+          this.audio.play('tide_bell');
+          this.hud.subtitle(DIALOGUE.tide_bell![0]!.speaker ?? '', DIALOGUE.tide_bell![0]!.text, 4.5);
+          if (this.settings.visualSoundCues) this.cueAt(16 * TILE + 8, 16 * TILE, 'ear');
+          break;
+        case 'TideTurned':
+          this.audio.play('tide_wash');
+          if (ev.level === 2) this.hud.subtitle('', 'The sea draws back further than before. The causeway to the great door lies bare.', 5);
+          break;
+        case 'TideCarried':
+          this.audio.play('tide_wash');
+          this.scene.sparkle(ev.x, ev.y - 6, 0x8fc4ee, 18);
+          this.hud.subtitle('', DIALOGUE.tide_carried![0]!.text, 4);
           break;
         case 'PlayerHurt':
           if (ev.amount >= 2) this.hud.hit();
@@ -562,6 +611,10 @@ export class GameApp {
     if (textId === 'heal_none') return this.hud.toast('No bandages.', true);
     const lines = DIALOGUE[textId];
     if (lines) this.hud.subtitle(lines[0]!.speaker ?? '', lines[0]!.text, 4.5);
+    if (textId === 'junction_locked' || textId === 'rail_locked') this.observe('obs_live_junction');
+    if (textId === 'rail_locked') this.observe(OBS.liveRail);
+    if (textId === 'staff_locked') this.observe(OBS.staffDoor);
+    if (textId === 'ladder_out_of_reach') this.observe(OBS.balconyChain);
   }
 
   private async talk(id: string): Promise<void> {
@@ -589,6 +642,20 @@ export class GameApp {
 
   private setFlag(id: string, v = true): void {
     this.world?.setFlag(id, v);
+  }
+
+  /** Record an observation; if it opens or adds to a journal question, say so quietly. */
+  private observe(id: string): void {
+    if (this.data.flags[id]) return;
+    const before = this.questionKey();
+    this.setFlag(id);
+    if (this.questionKey() !== before) this.hud.toast('Journal: new observation');
+  }
+
+  private questionKey(): string {
+    const ctx = this.world?.ctx;
+    if (!ctx) return '';
+    return QUESTIONS.map((q) => (evaluate(q.opens, ctx) ? `${q.id}:${q.evidence.filter((e) => evaluate(e.when, ctx)).length}` : '')).join('|');
   }
 
   private async runAction(action: string, entityId = ''): Promise<void> {
@@ -634,6 +701,16 @@ export class GameApp {
         d.finds.landmarks.push(name);
         this.hud.toast(`Landmark discovered: ${name}`);
       }
+      return;
+    }
+    if (action.startsWith('observe:')) {
+      this.observe(action.slice(8));
+      return;
+    }
+    if (action.startsWith('note:')) {
+      const [flagId, textId] = action.slice(5).split(':') as [string, string];
+      await this.talk(textId);
+      this.observe(flagId);
       return;
     }
     if (action.startsWith('title:')) {
@@ -740,9 +817,124 @@ export class GameApp {
       case 'tip_dark':
         this.hud.subtitle('', DIALOGUE.dark_tip![0]!.text, 6);
         return;
+      // ------------------------------------------------ Bracken Underground and the sea
+      case 'lift_station_bar':
+        this.audio.play('hatch');
+        this.setFlag(F.stationStreetOpen);
+        this.scene.addShake(1.5);
+        this.hud.subtitle('', DIALOGUE.station_bar![0]!.text, 4.5);
+        this.hud.toast('Shortcut opened: Last Platform ↔ Bracken street');
+        void this.save('discovery');
+        return;
+      case 'staff_release':
+        this.audio.play('door');
+        this.setFlag(F.stationStaffOpen);
+        this.hud.subtitle('', DIALOGUE.staff_release![0]!.text, 4);
+        this.hud.toast('Shortcut opened: Last Platform ↔ Service Veins');
+        void this.save('discovery');
+        return;
+      case 'lower_ladder':
+        this.audio.play('hatch');
+        this.setFlag(F.galleryLadderDown);
+        this.scene.addShake(1);
+        this.hud.subtitle('', DIALOGUE.ladder_lowered![0]!.text, 4);
+        this.hud.toast('Shortcut opened: gallery balcony ↔ gallery floor');
+        void this.save('discovery');
+        return;
+      case 'isolate_rail':
+        this.audio.play('keeper_stun');
+        this.setFlag(F.stationRailIsolated);
+        d.finds.secrets++;
+        this.scene.sparkle(w.player.x, w.player.y - 10, 0xb7ead0, 22);
+        this.scene.addShake(2);
+        this.hud.subtitle('', DIALOGUE.rail_isolated![0]!.text, 4);
+        void this.save('discovery');
+        return;
+      case 'unbolt_trapdoor':
+        this.audio.play('hatch');
+        this.setFlag(F.homeTrapdoorOpen);
+        this.hud.subtitle('', DIALOGUE.trapdoor_open![0]!.text, 5);
+        this.hud.toast('Shortcut opened: home ↔ the sea');
+        void this.save('discovery');
+        return;
+      case 'read_network_map':
+        await this.talk('network_map');
+        if (!d.flags[F.networkMapRead]) {
+          this.setFlag(F.networkMapRead);
+          w.explored.fill(1);
+          this.hud.toast('Map updated: Last Platform');
+          void this.save('discovery');
+        }
+        return;
+      case 'talk_orin':
+        await this.talkOrin();
+        return;
+      case 'talk_nemi': {
+        const first = !d.flags[F.metNemi];
+        this.setFlag(F.metNemi);
+        await this.talk(first ? 'nemi_first' : d.flags[seenFlag(REGIONS.cellar)] ? 'nemi_cellar' : 'nemi_after');
+        if (first) this.observe(OBS.nemiTide);
+        return;
+      }
+      case 'read_tide_gauge': {
+        const st = tideAt(w.tideT);
+        const band = st.level === 2 ? 'the green THIRD EBB band at its foot: the deepest the sea goes' : st.level === 1 ? 'the LOW band' : st.phase === 'falling' ? 'between HIGH and LOW, falling' : 'the HIGH band';
+        const ebb = 3 - st.ebbsToSpring;
+        const tally = st.ebbsToSpring === 0 ? 'This cycle is the third ebb, the one circled in chalk.' : `A chalk tally beside it counts the ebbs: this is ${ebb} of 3, and the third is circled.`;
+        await this.modal([{ speaker: 'Tide gauge', text: `Three painted bands: HIGH, LOW, and a green band marked THIRD EBB. The water stands at ${band}.` }, { speaker: 'Tide gauge', text: tally }]);
+        this.observe(OBS.tideGauge);
+        return;
+      }
+      case 'reveal_stacks':
+        this.look(55 * TILE, 26 * TILE, 3.6);
+        this.audio.play('discover');
+        this.hud.subtitle('', DIALOGUE.stacks_reveal![0]!.text, 7);
+        this.observe(OBS.stacks);
+        if (!d.finds.landmarks.includes('The Shoreward Stacks (seen)')) d.finds.landmarks.push('The Shoreward Stacks (seen)');
+        return;
+      case 'read_edda_letter':
+        await this.talk('edda_letter');
+        if (!d.flags.edda_letter_read) {
+          this.setFlag('edda_letter_read');
+          d.finds.secrets++;
+          void this.save('story');
+        }
+        return;
       default:
         console.warn('Unknown action', action);
     }
+  }
+
+  /** Orin will lift the Section 9 isolation for a voice he knows or a name he trusts. */
+  private async talkOrin(): Promise<void> {
+    const d = this.data;
+    if (d.flags[F.section9Live]) return this.talk('orin_after');
+    const first = !d.flags[F.metOrin];
+    this.setFlag(F.metOrin);
+    const viaRelay = d.flags[F.relayReconnected];
+    const viaRota = d.finds.curios.includes('curio_rota_card');
+    if (first) {
+      await this.talk('orin_first');
+      this.observe(OBS.orinRefuses);
+      if (!viaRelay && !viaRota) {
+        this.hud.toast('Refuge found: Signal cabin');
+        d.lastRefuge = { regionId: REGIONS.station, entry: 'cabin', id: 'refuge_signal_cabin' };
+        void this.save('refuge');
+        return;
+      }
+    }
+    if (viaRelay) {
+      this.audio.play('radio');
+      await this.talk('orin_mara');
+    } else if (viaRota) await this.talk('orin_rota');
+    else return this.talk(d.flags[seenFlag(REGIONS.tidal)] ? 'orin_shaft' : 'orin_waiting');
+    this.audio.play('lever');
+    this.setFlag(F.section9Live);
+    this.scene.addShake(2);
+    d.lastRefuge = { regionId: REGIONS.station, entry: 'cabin', id: 'refuge_signal_cabin' };
+    await this.talk('orin_lifts');
+    this.hud.toast('Platform Zero lift powered');
+    void this.save('story');
   }
 
   private onPickup(item: string, amount: number, ref?: string): void {
@@ -879,13 +1071,11 @@ export class GameApp {
   }
 
   // ------------------------------------------------------------------ pause & menus
-  private objectiveText(): string {
-    const f = this.data.flags;
-    if (!f[F.intercomAnswered]) return 'The intercom is buzzing.';
-    if (!f[F.relayReconnected]) return 'Lead: reconnect the relay beneath the laundrette. Follow the amber cable markings.';
-    if (!f[F.sliceComplete]) return 'Lead: return home and answer the intercom (the service lift now reaches the street).';
-    return 'The line is alive. The tunnels branch everywhere: the storm drain, the Cistern Hall’s south passage, the gallery’s far exits. Follow whatever calls to you.';
+  private revealHint(flagId: string): void {
+    this.data.flags[flagId] = true;
+    void this.save('journal');
   }
+
 
   togglePause(): void {
     if (this.mode === 'play') this.openPause();
@@ -901,14 +1091,14 @@ export class GameApp {
     this.input.resetAll();
     this.touchVisible(false);
     this.screens.pause({
-      objective: this.objectiveText(),
+      questions: openQuestions(this.data).slice(0, 3).map((q) => q.title),
       readOnly: this.readOnly,
       onResume: () => {
         this.screens.clear();
         this.resume();
       },
       onMap: () => this.openMap(),
-      onJournal: () => this.screens.journal(this.data, () => this.screens.pop()),
+      onJournal: () => this.screens.journal(this.data, () => this.screens.pop(), (f) => this.revealHint(f)),
       onEquipment: () => this.screens.equipment(this.data, () => this.screens.pop()),
       onSettings: () => this.openSettings(),
       onControls: () => this.screens.controls(this.input.mode === 'touch', () => this.screens.pop()),
@@ -941,7 +1131,7 @@ export class GameApp {
   private openJournalFromPlay(): void {
     if (this.mode !== 'play') return;
     this.openPause();
-    this.screens.journal(this.data, () => this.screens.pop());
+    this.screens.journal(this.data, () => this.screens.pop(), (f) => this.revealHint(f));
   }
 
   private resume(): void {

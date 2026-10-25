@@ -1,7 +1,7 @@
 import { MapBuilder } from '../mapBuilder.ts';
 import { Floor, WallStyle } from '../tiles.ts';
 import type { EntityDef, RegionDef, StaticLight } from '../types.ts';
-import { F, REGIONS } from '../ids.ts';
+import { F, OBS, REGIONS } from '../ids.ts';
 import { flag, px } from '../cond.ts';
 
 const W = 46;
@@ -67,6 +67,10 @@ const entities: EntityDef[] = [
   { kind: 'target', id: 'tin_c', tx: 41, ty: 18 },
   { kind: 'target', id: 'tin_d', tx: 39, ty: 19 },
   { kind: 'enemy', id: 'street_drain_skitter', tx: 35, ty: 10, type: 'skitter', respawns: false, activeWhen: flag(F.hasPistol) },
+  // Bracken Underground: boarded for forty years, the bar is on the inside
+  { kind: 'prop', id: 'street_station_entrance', tx: 34, ty: 3, frame: 'entrance_boarded', wall: true, alt: { when: flag(F.stationStreetOpen), frame: 'entrance_open' } },
+  { kind: 'interact', id: 'street_station_look', tx: 34, ty: 4, verb: 'Inspect', label: 'Boarded station entrance', action: `note:${OBS.boarded}:station_boarded`, hideWhen: flag(F.stationStreetOpen) },
+  { kind: 'exit', id: 'street_to_station', tx: 34, ty: 4, w: 1, h: 1, auto: false, verb: 'Go down', label: 'Bracken Underground', gate: flag(F.stationStreetOpen), target: { region: REGIONS.station, entry: 'street' } },
   // ways down: an open storm drain and manholes bolted from below until opened from underneath
   { kind: 'prop', id: 'street_storm_drain', tx: 5, ty: 10, frame: 'manhole_open', floor: true },
   { kind: 'exit', id: 'street_storm_drain_exit', tx: 5, ty: 10, w: 1, h: 1, auto: false, verb: 'Climb down', label: 'Storm drain', gate: flag(F.hasPistol), lockedText: 'drain_unarmed', target: { region: 'gen:street_storm_drain', entry: 'from_parent' } },
@@ -108,6 +112,7 @@ export const street: RegionDef = {
     manhole_a: { tx: 12, ty: 9, face: 'down' },
     manhole_b: { tx: 25, ty: 10, face: 'down' },
     manhole_c: { tx: 42, ty: 9, face: 'down' },
+    underground: { tx: 34, ty: 5, face: 'down' },
   },
   discoverTitle: 'Bracken',
   lights,

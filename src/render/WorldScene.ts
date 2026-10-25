@@ -9,6 +9,7 @@ import { wrapAngle } from '../sim/world.ts';
 import type { SequencedEvent } from '../sim/events.ts';
 import type { EnemyState } from '../sim/types.ts';
 import { KEEPER, nozzle } from '../sim/keeper.ts';
+import { tideAt } from '../sim/tide.ts';
 import { buildTileLayers } from './autotile.ts';
 import { LightMap, LIGHT_SCALE, type LightSource } from './lighting.ts';
 import { ParticlePool, type ParticleLayer } from './particles.ts';
@@ -101,6 +102,7 @@ export class WorldScene extends Phaser.Scene {
   private camX = 0;
   private camY = 0;
   private emitterAcc = new Map<string, number>();
+  private tideLayers: Array<Phaser.Tilemaps.TilemapLayer | Phaser.Tilemaps.TilemapGPULayer> = [];
   private moteAcc = 0;
   private rain: Array<{ x: number; y: number; vy: number; vx: number; len: number }> = [];
   private time0 = 0;
@@ -165,6 +167,15 @@ export class WorldScene extends Phaser.Scene {
     const ts2 = wallMap.addTilesetImage('tiles', 'tiles', TILE, TILE, 0, 0)!;
     wallMap.createLayer(0, ts2, 0, 0)!.setDepth(D.walls);
     this.maps.push(floorMap, wallMap);
+    this.tideLayers = [];
+    if (layers.tide) {
+      for (const data of layers.tide) {
+        const tm = this.make.tilemap({ data, tileWidth: TILE, tileHeight: TILE });
+        const ts = tm.addTilesetImage('tiles', 'tiles', TILE, TILE, 0, 0)!;
+        this.tideLayers.push(tm.createLayer(0, ts, 0, 0)!.setDepth(D.floorProp + 0.5));
+        this.maps.push(tm);
+      }
+    }
 
     for (const e of def.entities) {
       if (e.kind === 'prop') this.addProp(e);
@@ -200,6 +211,7 @@ export class WorldScene extends Phaser.Scene {
       s.setOrigin(0.5, 0.5).setPosition(Math.round(x), Math.round(y - h * TILE / 2)).setDepth(D.floorProp);
     } else if (def.wall) s.setDepth(D.wallProp);
     else s.setDepth(D.sorted + y * 0.01);
+    if (def.lit) s.setDepth(D.light + 0.5);
     let glow: Phaser.GameObjects.Image | null = null;
     if (def.glow) {
       glow = this.add.image(x + (def.glow.dx ?? 0), y + (def.glow.dy ?? 0), 'fx', 'glow_64').setDepth(D.glow).setBlendMode(Phaser.BlendModes.ADD);
@@ -238,6 +250,7 @@ export class WorldScene extends Phaser.Scene {
     if (world !== this.world) this.buildRegion(world);
     this.time0 += dt;
     this.syncProps(world);
+    this.syncTide(world);
     this.syncPlayer(world, dt);
     this.syncEnemies(world);
     this.syncPickups(world);
@@ -671,6 +684,15 @@ export class WorldScene extends Phaser.Scene {
     this.flashes.push({ x, y, radius, color, t: 0, peak: (rf ? peakMs * 0.5 : peakMs) / 1000, decay: (rf ? decayMs * 1.6 : decayMs) / 1000, strength: rf ? strength * 0.6 : strength });
   }
 
+  // ------------------------------------------------------------------ tide
+  private syncTide(world: World): void {
+    if (!this.tideLayers.length) return;
+    const st = tideAt(world.tideT);
+    const shimmer = 0.06 * Math.sin(this.time0 * 1.7);
+    this.tideLayers[0]?.setAlpha(Math.min(1, st.cover1 * 0.9 + (st.cover1 > 0 ? shimmer : 0)));
+    this.tideLayers[1]?.setAlpha(Math.min(1, st.cover2 * 0.9 + (st.cover2 > 0 ? shimmer : 0)));
+  }
+
   // ------------------------------------------------------------------ ambient particles
   private updateAmbientFx(world: World, dt: number): void {
     const cam = this.cameras.main.worldView;
@@ -698,7 +720,8 @@ export class WorldScene extends Phaser.Scene {
       this.moteAcc += dt * (q === 'low' ? 2 : q === 'medium' ? 4 : 6);
       while (this.moteAcc > 1) {
         this.moteAcc -= 1;
-        this.particles.spawn('air', { x: cam.x + Math.random() * cam.width, y: cam.y + Math.random() * cam.height, life: 4 + Math.random() * 3, size: 1, color: 0xdcd6c6, alpha: 0.35, vx: Math.random() * 6 - 3, vy: -2 - Math.random() * 3, drag: 1 });
+        const spore = def.motes === 'spores';
+        this.particles.spawn(spore ? 'glow' : 'air', { x: cam.x + Math.random() * cam.width, y: cam.y + Math.random() * cam.height, life: 4 + Math.random() * 3, size: 1, color: spore ? 0x9fe8c8 : 0xdcd6c6, alpha: spore ? 0.5 : 0.35, vx: Math.random() * 6 - 3, vy: -2 - Math.random() * 3, drag: 1 });
       }
     }
     for (const em of def.emitters ?? []) {
@@ -711,7 +734,7 @@ export class WorldScene extends Phaser.Scene {
         const x = (em.tx + Math.random() * em.w) * TILE;
         const y = (em.ty + Math.random() * em.h) * TILE;
         // Lint is a clue: it must stay visible on every quality setting, so it ignores reducedMotion.
-        this.particles.spawn('glow', { x, y, life: 6, size: 1, color: 0xf4f0e4, alpha: 0.55, vx: Math.random() * 6 - 3, vy: Math.random() * 6 - 3, attract: em.toX !== undefined ? 22 * (rate > em.rate ? 2 : 1) : 0, ax: em.toX ?? 0, ay: em.toY ?? 0, drag: 0.985, fade: false });
+        this.particles.spawn('glow', { x, y, life: 6, size: 1, color: em.type === 'drip' ? 0x8fc4ee : 0xf4f0e4, alpha: 0.55, vx: Math.random() * 6 - 3, vy: Math.random() * 6 - 3, attract: em.toX !== undefined ? 22 * (rate > em.rate ? 2 : 1) : 0, ax: em.toX ?? 0, ay: em.toY ?? 0, drag: 0.985, fade: false });
       }
     }
   }

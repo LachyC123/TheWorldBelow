@@ -28,6 +28,11 @@ export class Grid {
   private readonly staticBlock: Uint8Array;
   private readonly staticShot: Uint8Array;
   private readonly staticLight: Uint8Array;
+  /** tidal class per cell (0 = dry land, 1 = every low tide, 2 = spring ebb only) */
+  readonly tidal: Uint8Array;
+  readonly hasTide: boolean;
+  /** cells with tidal class above this level are under water */
+  tideLevel = 0;
   /** bumped whenever dynamic geometry changes (light caches key on this) */
   revision = 0;
 
@@ -36,6 +41,8 @@ export class Grid {
     this.w = def.map[0]!.length;
     const n = this.w * this.h;
     this.cells = new Uint8Array(n);
+    this.tidal = new Uint8Array(n);
+    let tide = false;
     for (let y = 0; y < this.h; y++) {
       const row = def.map[y]!;
       if (row.length !== this.w) throw new Error(`${def.id}: row ${y} has length ${row.length}, expected ${this.w}`);
@@ -43,8 +50,13 @@ export class Grid {
         const cd = def.legend[row[x]!];
         if (!cd) throw new Error(`${def.id}: unknown legend char '${row[x]}' at ${x},${y}`);
         this.cells[y * this.w + x] = 'wall' in cd ? Cell.Wall : 'water' in cd ? Cell.Water : 'void' in cd ? Cell.Void : Cell.Floor;
+        if ('floor' in cd && cd.tidal) {
+          this.tidal[y * this.w + x] = cd.tidal;
+          tide = true;
+        }
       }
     }
+    this.hasTide = tide;
     this.staticBlock = new Uint8Array(n);
     this.staticShot = new Uint8Array(n);
     this.staticLight = new Uint8Array(n);
@@ -84,7 +96,14 @@ export class Grid {
     this.block.set(this.staticBlock);
     this.shot.set(this.staticShot);
     this.light.set(this.staticLight);
+    if (this.hasTide) for (let i = 0; i < this.tidal.length; i++) if (this.tidal[i]! > this.tideLevel) this.block[i] = 1;
     this.revision++;
+  }
+
+  /** Is this walkable cell currently under the tide? */
+  submerged(tx: number, ty: number): boolean {
+    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return false;
+    return this.tidal[ty * this.w + tx]! > this.tideLevel;
   }
 
   stamp(tx: number, ty: number, w: number, h: number, opts: { block?: boolean; shot?: boolean; light?: boolean }): void {

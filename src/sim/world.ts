@@ -1,7 +1,7 @@
 // Authoritative fixed-step simulation for the active region. No rendering or DOM here:
 // presentation reads state and subscribes to events (docs/design/docs/07 update order).
 import type { EntityDef, ExitDef, InteractDef, RegionDef, TriggerDef } from '../content/types.ts';
-import { TILE } from '../content/tiles.ts';
+import { Floor, TILE } from '../content/tiles.ts';
 import { WEAPONS } from '../content/weapons.ts';
 import { weaponStats } from './weaponStats.ts';
 import { TONIC_HP, UPGRADE_BY_ID, CAP_GLOVES } from '../content/discoveries.ts';
@@ -14,6 +14,7 @@ import { Rng } from './rng.ts';
 import type { BoltState, Commands, EnemyState, Face, PickupState, PlayerState, ProjectileState, Prompt, TargetState, VentState } from './types.ts';
 import { createEnemy, updateEnemy, damageEnemy } from './ai.ts';
 import { PathField } from './pathfield.ts';
+import { bellDue, tideAt } from './tide.ts';
 
 export const DT = 1 / 60;
 export const PLAYER_SPEED = 90;
@@ -63,6 +64,9 @@ export class World {
   ventGroup: 'a' | 'b' = 'a';
   /** true once an auto/requested exit fired; Game swaps regions */
   exiting = false;
+  /** journey clock driving the tide (seeded from play time, advanced by the fixed step) */
+  tideT = 0;
+  private bellT = 0;
 
   constructor(def: RegionDef, data: GameData, spawn: { x: number; y: number; face: Face }) {
     this.def = def;
@@ -107,11 +111,16 @@ export class World {
       footT: 0,
       manualAim: false,
     };
+    if (def.tide) {
+      this.tideT = data.playSeconds;
+      this.applyTide(true);
+    }
     for (const e of def.entities) this.spawnEntity(e);
     if (data.cache && data.cache.regionId === def.id) {
       this.pickups.push({ id: 'recovery_cache', item: 'cache', amount: 1, x: data.cache.x, y: data.cache.y, visible: true, bob: 0 });
     }
     this.refresh();
+    if (def.tide) this.carryAshore();
     // Arrival inside a trigger should not fire it immediately (e.g. returning through a doorway).
     for (const e of def.entities) if (e.kind === 'trigger' && this.inRect(e, this.player.x, this.player.y)) this.insideTriggers.add(e.id);
     this.markExplored();
@@ -191,6 +200,7 @@ export class World {
   step(cmd: Commands): void {
     this.time += DT;
     this.tick++;
+    if (this.def.tide) this.updateTide();
     const fk = JSON.stringify(this.data.flags) + JSON.stringify(this.temp);
     if (fk !== this.flagsKey) this.refresh();
     this.updatePlayer(cmd);
@@ -883,6 +893,9 @@ export class World {
     if (f === 3 || f === 6 || f === 2 || f === 1 || f === 28 || f === 29) return 'wet';
     if (f === 15 || f === 16 || f === 17 || f === 18 || f === 30) return 'metal';
     if (f === 23 || f === 25) return 'gravel';
+    if (f === Floor.PIER || f === Floor.PIER_EDGE) return 'wood';
+    if (f === Floor.SAND_WET || f === Floor.GLOW_SAND || f === Floor.TIDE_WATER) return 'wet';
+    if (f === Floor.SAND || f === Floor.SHINGLE || f === Floor.TRACK || f === Floor.CAVE_ROCK) return 'gravel';
     return 'hard';
   }
 
@@ -921,6 +934,81 @@ export class World {
         const hit = g.ray(g.light, p.x, p.y - 6, (cx - p.x) / (d || 1), (cy - (p.y - 6)) / (d || 1), d);
         if (!hit.hit || (hit.cx === tx && hit.cy === ty)) this.explored[i] = 1;
       }
+  }
+
+  // ------------------------------------------------------------------ tide
+  private updateTide(): void {
+    const prev = this.tideT;
+    this.tideT += DT;
+    if (bellDue(prev, this.tideT)) {
+      this.bellT = 3;
+      this.temp.tmp_tide_bell = true;
+      this.emit({ type: 'TideBell' });
+    }
+    if (this.bellT > 0) {
+      this.bellT -= DT;
+      if (this.bellT <= 0) this.temp.tmp_tide_bell = false;
+    }
+    if (this.applyTide(false)) {
+      this.refresh();
+      this.carryAshore();
+    }
+  }
+
+  /** Update the grid's tide level and gauge flags; returns true if walkable cells changed. */
+  private applyTide(initial: boolean): boolean {
+    const st = tideAt(this.tideT);
+    this.temp.tmp_tide_low = st.level >= 1;
+    this.temp.tmp_tide_spring = st.level === 2;
+    if (!initial && st.level === this.grid.tideLevel) return false;
+    const changed = st.level !== this.grid.tideLevel;
+    this.grid.tideLevel = st.level;
+    if (!initial && changed) this.emit({ type: 'TideTurned', level: st.level });
+    return changed;
+  }
+
+  /** The sea never drowns you: if the water covers you, it sets you down on the nearest dry ground. */
+  private carryAshore(): void {
+    const p = this.player;
+    const g = this.grid;
+    if (!p.alive || !this.boxOnTide(p.x, p.y)) return;
+    const sx = Math.floor(p.x / TILE);
+    const sy = Math.floor((p.y - 3) / TILE);
+    const seen = new Uint8Array(g.w * g.h);
+    const q: number[] = [sy * g.w + sx];
+    seen[q[0]!] = 1;
+    for (let head = 0; head < q.length; head++) {
+      const i = q[head]!;
+      const x = i % g.w;
+      const y = (i / g.w) | 0;
+      if (!g.block[i] && g.tidal[i] === 0) {
+        p.x = x * TILE + 8;
+        p.y = y * TILE + 12;
+        p.dodgeT = 0;
+        p.iframes = Math.max(p.iframes, 0.6);
+        this.emit({ type: 'TideCarried', x: p.x, y: p.y });
+        return;
+      }
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= g.w || ny >= g.h) continue;
+        const ni = ny * g.w + nx;
+        if (seen[ni] || g.isWall(nx, ny)) continue;
+        seen[ni] = 1;
+        q.push(ni);
+      }
+    }
+  }
+
+  private boxOnTide(x: number, y: number): boolean {
+    const g = this.grid;
+    const tx0 = Math.floor((x - PLAYER_HW) / TILE);
+    const tx1 = Math.floor((x + PLAYER_HW - 0.001) / TILE);
+    const ty0 = Math.floor((y - PLAYER_HH) / TILE);
+    const ty1 = Math.floor((y - 0.001) / TILE);
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (g.submerged(tx, ty)) return true;
+    return false;
   }
 
   exportExplored(): string {

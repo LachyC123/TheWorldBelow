@@ -1,7 +1,7 @@
 import { MapBuilder } from '../mapBuilder.ts';
 import { Floor, WallStyle } from '../tiles.ts';
 import type { RegionDef } from '../types.ts';
-import { F, REGIONS } from '../ids.ts';
+import { F, OBS, REGIONS } from '../ids.ts';
 import { all, any, flag, not, px, seq } from '../cond.ts';
 
 const m = new MapBuilder(18, 12).carve(1, 2, 16, 9, '.').carve(7, 5, 4, 3, 'r').set(8, 11, 'm');
@@ -20,6 +20,7 @@ export const home: RegionDef = {
     start: { tx: 4, ty: 3, face: 'down' },
     door: { tx: 8, ty: 10, face: 'up' },
     bed: { tx: 13, ty: 4, face: 'down' },
+    trapdoor: { tx: 15, ty: 8, face: 'down' },
   },
   lights: [
     { id: 'home_table_lamp', x: px(12), y: px(3), radius: 110, color: [255, 196, 120], intensity: 1, flicker: 0.03 },
@@ -36,6 +37,10 @@ export const home: RegionDef = {
     { kind: 'interact', id: 'home_bed_rest', tx: 14, ty: 4, w: 2, verb: 'Rest', label: 'Bed', action: 'rest_refuge' },
     { kind: 'prop', id: 'home_shelf', tx: 1, ty: 2, frame: 'bookshelf', solid: { w: 2, h: 1 } },
     { kind: 'prop', id: 'home_chair', tx: 5, ty: 6, frame: 'armchair', solid: { w: 1, h: 1 } },
+    // a trapdoor you never noticed, bolted from below
+    { kind: 'prop', id: 'home_trapdoor', tx: 15, ty: 9, frame: 'trapdoor_closed', floor: true, alt: { when: flag(F.homeTrapdoorOpen), frame: 'trapdoor_open' } },
+    { kind: 'interact', id: 'home_trapdoor_look', tx: 15, ty: 9, verb: 'Inspect', label: 'Trapdoor', action: `note:${OBS.trapdoor}:trapdoor_locked`, hideWhen: flag(F.homeTrapdoorOpen) },
+    { kind: 'exit', id: 'home_to_cellar', tx: 15, ty: 9, w: 1, h: 1, auto: false, verb: 'Climb down', label: 'Cellar stair', gate: flag(F.homeTrapdoorOpen), target: { region: REGIONS.cellar, entry: 'stair' } },
     { kind: 'exit', id: 'home_exit', tx: 8, ty: 11, w: 1, h: 1, auto: true, target: { region: REGIONS.street, entry: 'home_door' } },
   ],
 };

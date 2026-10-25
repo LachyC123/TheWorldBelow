@@ -665,7 +665,74 @@ export function toRegionDef(rec: GeneratedRegionRecord): RegionDef {
     discoverTitle: rec.name,
   };
   if (rec.refuge) def.refuge = rec.refuge;
+  const link = AUTHORED_LINKS[rec.socketId];
+  if (link) addLink(def, rec, link);
   return def;
+}
+
+/**
+ * Authored reconnections from generated territory back into the hand-built world. They are
+ * derived from the committed map at load time (not stored), so districts committed before a
+ * link existed gain it too, in the same place every time, without regenerating anything.
+ */
+export interface AuthoredLink {
+  key: string;
+  region: string;
+  entry: string;
+  label: string;
+}
+export const AUTHORED_LINKS: Record<string, AuthoredLink> = {
+  street_storm_drain: { key: 'station', region: 'region_station_001', entry: 'tunnel', label: 'Drain grate (toward the old line)' },
+};
+
+function addLink(def: RegionDef, rec: GeneratedRegionRecord, link: AuthoredLink): void {
+  const grid = new Grid(def);
+  const spawn = def.entries.from_parent;
+  if (!spawn) return;
+  // walkable with every gate closed, so the link never hides behind an optional obstacle
+  const block = new Uint8Array(grid.block);
+  const occupied = new Set<number>();
+  for (const e of def.entities) {
+    if (e.kind === 'prop' && e.solid) for (let y = e.ty; y < e.ty + e.solid.h; y++) for (let x = e.tx; x < e.tx + e.solid.w; x++) block[y * grid.w + x] = 1;
+    if (e.kind !== 'prop' || e.solid) {
+      const w = 'w' in e && typeof e.w === 'number' ? e.w : 1;
+      const h = 'h' in e && typeof e.h === 'number' ? e.h : 1;
+      for (let y = e.ty - 1; y <= e.ty + h; y++) for (let x = e.tx - 1; x <= e.tx + w; x++) occupied.add(y * grid.w + x);
+    }
+  }
+  const dist = new Int32Array(grid.w * grid.h).fill(-1);
+  const start = spawn.ty * grid.w + spawn.tx;
+  const q = [start];
+  dist[start] = 0;
+  let best = -1;
+  for (let head = 0; head < q.length; head++) {
+    const i = q[head]!;
+    const x = i % grid.w;
+    const y = (i / grid.w) | 0;
+    const open4 = [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => !block[(y + dy!) * grid.w + x + dx!]);
+    if (open4 && !occupied.has(i) && (best < 0 || dist[i]! > dist[best]!)) best = i;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= grid.w || ny >= grid.h) continue;
+      const ni = ny * grid.w + nx;
+      if (dist[ni]! >= 0 || block[ni]) continue;
+      dist[ni] = dist[i]! + 1;
+      q.push(ni);
+    }
+  }
+  if (best < 0) return;
+  const tx = best % grid.w;
+  const ty = (best / grid.w) | 0;
+  def.entries = { ...def.entries, [`link_${link.key}`]: { tx, ty, face: 'down' } };
+  def.entities = [
+    ...def.entities,
+    { kind: 'prop', id: `${rec.id}_link_${link.key}_grate`, tx, ty, frame: 'manhole_open', floor: true },
+    { kind: 'exit', id: `${rec.id}_link_${link.key}`, tx, ty, w: 1, h: 1, auto: false, verb: 'Climb down', label: link.label, target: { region: link.region, entry: link.entry } },
+    { kind: 'trigger', id: `${rec.id}_link_${link.key}_seen`, tx: tx - 2, ty: ty - 2, w: 5, h: 5, action: 'observe:obs_drain_grate', once: true },
+  ];
+  def.lights = [...def.lights, { id: `${rec.id}_link_${link.key}_light`, x: tx * TILE + 8, y: ty * TILE + 8, radius: 52, color: [140, 190, 255], intensity: 0.6, flicker: 0.2 }];
+  def.emitters = [...(def.emitters ?? []), { id: `${rec.id}_link_${link.key}_drip`, type: 'drip', tx: tx - 1, ty: ty - 1, w: 3, h: 3, toX: tx * TILE + 8, toY: ty * TILE + 8, rate: 2 }];
 }
 
 /** Returns a list of problems; empty means the district is safe to commit. */
@@ -717,7 +784,7 @@ export function validateDistrict(rec: GeneratedRegionRecord): string[] {
   const at = (m: Uint8Array, tx: number, ty: number): boolean => !!m[ty * grid.w + tx];
   for (const e of def.entities) {
     if (e.kind === 'exit') {
-      const required = e.id.endsWith('_return') || e.id.includes('_frontier_') || e.id.endsWith('_ladder_exit');
+      const required = e.id.endsWith('_return') || e.id.includes('_frontier_') || e.id.endsWith('_ladder_exit') || e.id.includes('_link_');
       if (!near(required ? closed : open, e.tx, e.ty, e.w, e.h)) errs.push(`exit ${e.id} unreachable`);
     } else if (e.kind === 'pickup') {
       const req = e.item === 'insulated_gloves';

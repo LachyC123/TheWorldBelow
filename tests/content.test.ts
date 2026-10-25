@@ -7,6 +7,8 @@ import { DIALOGUE, JOURNAL } from '../src/content/story.ts';
 import { F, REGIONS } from '../src/content/ids.ts';
 import { Grid } from '../src/sim/grid.ts';
 import { AUTHORED_SOCKETS, MANHOLES } from '../src/world/frontier.ts';
+import { AUTHORED_LINKS } from '../src/world/generator.ts';
+import { QUESTIONS } from '../src/content/questions.ts';
 import type { Condition, RegionDef } from '../src/content/types.ts';
 
 const atlas = (n: string): Record<string, unknown> => (JSON.parse(readFileSync(`public/assets/${n}.json`, 'utf8')) as { frames: Record<string, unknown> }).frames;
@@ -51,8 +53,18 @@ describe('content registry', () => {
       for (const e of r.entities)
         if (e.kind === 'exit') {
           if (e.target.region.startsWith('gen:')) {
-            const s = AUTHORED_SOCKETS[e.target.region.slice(4)];
+            const socket = e.target.region.slice(4);
+            const s = AUTHORED_SOCKETS[socket];
             expect(s, `${r.id}:${e.id} socket`).toBeDefined();
+            if (e.target.entry.startsWith('link_')) {
+              // a reconnection into a generated district from elsewhere: the link must point back here
+              const link = AUTHORED_LINKS[socket];
+              expect(link, `${r.id}:${e.id} link`).toBeDefined();
+              expect(`link_${link!.key}`).toBe(e.target.entry);
+              expect(link!.region).toBe(r.id);
+              expect(r.entries[link!.entry], `${r.id}:${e.id} link return entry`).toBeDefined();
+              continue;
+            }
             expect(s!.parentRegion).toBe(r.id);
             expect(r.entries[s!.parentEntry], `${r.id}:${e.id} return entry`).toBeDefined();
           } else if (e.target.region.startsWith('manhole:')) {
@@ -95,6 +107,20 @@ describe('reachability and fairness', () => {
       const firstEntry = Object.values(r.entries)[0]!;
       const area = reach(r, firstEntry.tx, firstEntry.ty);
       const g = new Grid(r);
+      // ladders and stairs inside one region (e.g. the gallery balcony) join separate floors
+      for (let changed = true; changed; ) {
+        changed = false;
+        for (const e of r.entities) {
+          if (e.kind !== 'exit' || e.target.region !== r.id) continue;
+          const to = r.entries[e.target.entry]!;
+          let touches = false;
+          for (let y = e.ty - 1; y <= e.ty + e.h; y++) for (let x = e.tx - 1; x <= e.tx + e.w; x++) if (area.has(y * g.w + x)) touches = true;
+          if (touches && !area.has(to.ty * g.w + to.tx)) {
+            for (const i of reach(r, to.tx, to.ty)) area.add(i);
+            changed = true;
+          }
+        }
+      }
       const near = (tx: number, ty: number, w = 1, h = 1): boolean => {
         for (let y = ty - 1; y <= ty + h; y++) for (let x = tx - 1; x <= tx + w; x++) if (area.has(y * g.w + x)) return true;
         return false;
@@ -119,6 +145,14 @@ describe('reachability and fairness', () => {
       tmp_arena_sealed: 'pipekeeper_commit',
       [F.serviceJunctionOpen]: `open_gate:${F.serviceJunctionOpen}`,
       [F.pressureRouteOpen]: 'open_pressure_route',
+      [F.relayReconnected]: 'reconnect_relay',
+      [F.stationStreetOpen]: 'lift_station_bar',
+      [F.stationStaffOpen]: 'staff_release',
+      [F.galleryLadderDown]: 'lower_ladder',
+      [F.section9Live]: 'talk_orin',
+      [F.metOrin]: 'talk_orin',
+      [F.stationRailIsolated]: 'isolate_rail',
+      [F.homeTrapdoorOpen]: 'unbolt_trapdoor',
       // manholes open when the player climbs a generated district's ladder (Game.onExit)
       manhole_a_open: 'street_manhole_a_exit',
       manhole_b_open: 'street_manhole_b_exit',
@@ -166,5 +200,68 @@ describe('reachability and fairness', () => {
     expect(seen.size).toBe(REGION_LIST.length);
     expect(adj.get(REGIONS.gallery)!.has(REGIONS.street)).toBe(true);
     expect(adj.get(REGIONS.street)!.has(REGIONS.gallery)).toBe(true);
+  });
+
+  it('every shortcut that opens from the far side has its setter on the far side', () => {
+    const where = (action: string): string[] => REGION_LIST.filter((r) => r.entities.some((e) => 'action' in e && e.action === action)).map((r) => r.id);
+    expect(where('lift_station_bar')).toEqual([REGIONS.station]);
+    expect(where('staff_release')).toEqual([REGIONS.station]);
+    expect(where('unbolt_trapdoor')).toEqual([REGIONS.cellar]);
+    expect(where('lower_ladder')).toEqual([REGIONS.gallery]);
+    // and each one is visible, with an explanation, from the side where it starts closed
+    const street = REGION_DEFS[REGIONS.street]!.entities.find((e) => e.id === 'street_station_look');
+    const home = REGION_DEFS[REGIONS.home]!.entities.find((e) => e.id === 'home_trapdoor_look');
+    const service = REGION_DEFS[REGIONS.service]!.entities.find((e) => e.id === 'service_to_station');
+    expect(street && home && service).toBeTruthy();
+    expect(service!.kind === 'exit' && service!.lockedText).toBe('staff_locked');
+  });
+
+  it('Platform Zero has independent approaches, and no clue sits behind the gate it opens', () => {
+    const st = REGION_DEFS[REGIONS.station]!;
+    // A (social): Orin is reachable from every entry into the station without crossing the rail
+    const area = reach(st, st.entries.street!.tx, st.entries.street!.ty);
+    const g = new Grid(st);
+    const orin = st.entities.find((e) => e.id === 'cabin_orin_talk')!;
+    expect(area.has((orin.ty + 1) * g.w + orin.tx) || area.has(orin.ty * g.w + orin.tx - 1)).toBe(true);
+    // B (tool + danger): with the third rail live, the shaft hatch is cut off; isolated, it is open
+    const hatch = st.entities.find((e) => e.id === 'station_shaft_down')!;
+    const closed = new Grid(st);
+    for (const e of st.entities) if (e.kind === 'prop' && e.solid) closed.stamp(e.tx, e.ty, e.solid.w, e.solid.h, { block: true });
+    const flood = (grid: Grid, sx: number, sy: number): Set<number> => {
+      const seen = new Set<number>();
+      const q = [[sx, sy]];
+      while (q.length) {
+        const [x, y] = q.pop()!;
+        if (x! < 0 || y! < 0 || x! >= grid.w || y! >= grid.h) continue;
+        const i = y! * grid.w + x!;
+        if (seen.has(i) || grid.block[i]) continue;
+        seen.add(i);
+        q.push([x! + 1, y!], [x! - 1, y!], [x!, y! + 1], [x!, y! - 1]);
+      }
+      return seen;
+    };
+    expect(flood(closed, st.entries.tunnel!.tx, st.entries.tunnel!.ty).has(hatch.ty * g.w + hatch.tx)).toBe(false);
+    expect(area.has(hatch.ty * g.w + hatch.tx)).toBe(true);
+    const rail = st.entities.find((e) => e.id === 'station_rail_use')!;
+    expect(rail.kind === 'interact' && rail.when).toEqual({ type: 'hasCapability', id: 'insulated_gloves' });
+    // the evidence for both approaches is on the near side: Orin's radio and rota are in his cabin
+    for (const id of ['cabin_radio_listen', 'cabin_rota_read', 'station_call_panel_read', 'station_rail_seen']) {
+      const e = st.entities.find((x) => x.id === id)!;
+      expect(area.has(e.ty * g.w + e.tx) || area.has((e.ty + 1) * g.w + e.tx), id).toBe(true);
+    }
+    // the rota card that persuades him is found outside the station
+    const svc = REGION_DEFS[REGIONS.service]!;
+    expect(svc.entities.some((e) => e.kind === 'pickup' && e.ref === 'curio_rota_card')).toBe(true);
+  });
+
+  it('journal questions have three-step hint ladders and reference real flags', () => {
+    const ids = new Set<string>();
+    for (const q of QUESTIONS) {
+      expect(ids.has(q.id)).toBe(false);
+      ids.add(q.id);
+      expect(q.hints).toHaveLength(3);
+      expect(q.evidence.length).toBeGreaterThan(0);
+      expect(q.answers.length).toBeGreaterThan(0);
+    }
   });
 });

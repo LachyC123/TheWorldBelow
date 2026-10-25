@@ -290,6 +290,23 @@ export class AudioEngine {
         this.tone('world', { freq: 180, freqEnd: 90, dur: 0.6, gain: 0.15, type: 'sawtooth' });
         this.noiseBurst('world', { dur: 0.5, gain: 0.25, type: 'lowpass', freq: 600 });
         break;
+      case 'tide_bell':
+        this.tone('world', { freq: 392, dur: 1.8, gain: 0.12, type: 'sine', attack: 0.005 });
+        this.tone('world', { freq: 784.6, dur: 1.2, gain: 0.05, type: 'sine', attack: 0.005 });
+        this.tone('world', { freq: 392, dur: 1.8, gain: 0.1, type: 'sine', attack: 0.005, delay: 0.9 });
+        break;
+      case 'tide_wash':
+        this.noiseBurst('world', { dur: 1.4, gain: 0.25, type: 'lowpass', freq: 700, freqEnd: 200, attack: 0.2 });
+        break;
+      case 'chime':
+        // station public address: two falling notes before every announcement
+        this.tone('ui', { freq: 587, dur: 0.45, gain: 0.07, type: 'triangle', attack: 0.01 });
+        this.tone('ui', { freq: 440, dur: 0.7, gain: 0.07, type: 'triangle', attack: 0.01, delay: 0.4 });
+        break;
+      case 'lever':
+        this.tone('world', { freq: 90, freqEnd: 60, dur: 0.4, gain: 0.2, type: 'square' });
+        this.noiseBurst('world', { dur: 0.25, gain: 0.2, type: 'highpass', freq: 1500, delay: 0.3 });
+        break;
       case 'relay_tones':
         // the recurring three-tone relay motif
         this.tone('ui', { freq: 659, dur: 0.5, gain: 0.12, type: 'sine', attack: 0.02 });
@@ -400,6 +417,20 @@ export class AudioEngine {
         loop('lowpass', 120, 0.22);
         hum(36.7, 0.06);
         loop('bandpass', 2600, 0.015, 5);
+        break;
+      case 'station':
+        // a big tiled hall: low air movement, a distant tunnel draught, fluorescent buzz
+        loop('lowpass', 110, 0.18);
+        loop('bandpass', 380, 0.04, 0.5);
+        hum(100, 0.012);
+        this.startDrips(5);
+        break;
+      case 'sea':
+        // an enclosed sea: slow surf, wide and soft, with the cavern's low resonance
+        loop('lowpass', 420, 0.2, 0.3);
+        loop('bandpass', 1400, 0.03, 0.3);
+        hum(30.9, 0.03);
+        this.startDrips(4);
         break;
     }
   }

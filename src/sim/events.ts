@@ -40,6 +40,9 @@ export type SimEvent =
   | { type: 'ExitRequested'; region: string; entry: string }
   | { type: 'WeaponSwapped'; weaponId: WeaponId }
   | { type: 'TorchToggled'; on: boolean }
-  | { type: 'CacheRecovered' };
+  | { type: 'CacheRecovered' }
+  | { type: 'TideBell' }
+  | { type: 'TideTurned'; level: 0 | 1 | 2 }
+  | { type: 'TideCarried'; x: number; y: number };
 
 export type SequencedEvent = SimEvent & { seq: number };
