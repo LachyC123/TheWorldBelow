@@ -1,4 +1,4 @@
-# Architecture decisions (M0–M2)
+# Architecture decisions (M0–M3 and the world-structure pass)
 
 ## ADR-1 Toolchain (pinned 25 Oct 2026)
 TypeScript **6.0.3** (strict, `erasableSyntaxOnly`), Phaser **4.2.1**, Vite **8.3.4**, Vitest **4.1.12** (4.1.11 has a published mocker advisory), ESLint **10.12.0** + typescript-eslint **8.71.2**, Playwright **1.63.0**. All versions are exact pins in `package.json` and the lockfile; each was released more than two weeks before pinning, except Vitest 4.1.12, which is a security patch. TypeScript 7 (the native port) was skipped as too new. Phaser 4 is used only through APIs verified against its bundled type definitions; `tsc` gates every API use. Note: npm 10.9.4 crashes resolving this tree (an `edgesOut` arborist bug), so `npm ci` works but adding packages needs npm ≥ 11.
@@ -71,7 +71,33 @@ The authored slice opens onto generated territory at **sockets**: the street sto
 
 **Saves.** Schema v2 adds `world` (ledger and districts) and `finds`. v1 saves are checksum-verified, then migrated, and the original record stays as the slot backup until the next save. Imported districts are revalidated (tiles must belong to their biome legend, entities must be well-formed, and the full district validation runs) before acceptance.
 
+## ADR-12 Local region rules are deterministic simulation, not presentation (tide)
+The underground sea's rule is the tide (`src/sim/tide.ts`). It is a pure function of a clock: a 46 s cycle (high → falling → low → rising), with every third ebb a spring ebb.
+- **Cells.** Tidal cells are authored floor cells with `tidal: 1 | 2` in the region legend. `Grid.tideLevel` blocks every tidal cell above the current level on each `resetDynamic`, so collision, path fields and projectiles all agree.
+- **Clock.** The World seeds its tide clock from `playSeconds` on entry and advances it with the fixed step. The tide is predictable and reproducible, never random.
+- **Feedback.** The bell is a sim event (`TideBell`) 6 s before the water turns. It plays a sound, shows a subtitle and an on-screen cue icon, and swings the bell sprite. The gauge sprite reads the level through temporary flags.
+- **No drowning.** If rising water covers the player, a BFS through non-wall cells sets them on the nearest dry, unblocked tile (`TideCarried`) with no damage.
+- **Rendering.** Presentation only fades two tide tilemap layers by coverage.
+
+## ADR-13 Objectives are journal questions computed from evidence
+`src/content/questions.ts` defines questions with an `opens` condition, a `resolves` condition, evidence lines (each gated by an observation flag) and a three-step hint ladder.
+- **Evidence.** Observation flags (`OBS` in `ids.ts`) are set by `observe:` triggers, `note:` interactions, locked-text explanations and conversations.
+- **Hints.** Revealed hints are stored as `hint_<question>_<tier>` flags, so they persist and never re-hide.
+- **Pause.** The pause menu lists open question titles instead of an objective string.
+- **Saves.** No new save fields: everything is flags in the existing v2 schema, so older saves load unchanged and simply have no observations yet.
+
+## ADR-14 Authored reconnections into generated districts are derived, not stored
+`AUTHORED_LINKS` in `generator.ts` maps a socket (currently `street_storm_drain`) to an authored region entry. `toRegionDef` adds the link when a committed record is turned into a region:
+- **Placement.** It sits on the reachable floor cell farthest from the arrival, computed with gates closed, so it never hides behind an optional obstacle.
+- **Contents.** It adds a grate, an exit, a `link_<key>` entry, a light, a drip clue and an observation trigger.
+- **Not stored.** Because the link is computed from the committed map, districts committed by earlier builds gain it too, in the same place every time, without regenerating anything. The committed record never stores it, so the save format and `GENERATOR_VERSION` are unchanged.
+
+## ADR-15 Lit props and scale reveals
+- **`lit` props.** Props marked `lit` draw above the light layer (distant vistas, station signage), so a far-off town can glow in a dark cavern.
+- **Solid props for set pieces.** Large set pieces that must be lit (the great door) are solid, non-opaque props over floor cells, not art painted on wall tops, which light cannot reach.
+- **First-sight looks.** First sight of a spectacular destination triggers a short scripted camera look (`GameApp.look`) with a subtitle. Phone viewports are short, and the reveal must not depend on where the player happens to stand.
+
 ## Not yet built
-- Region families beyond the three tunnel biomes (Last Platform, Drowned Ward, gardens), NPCs, the Foundation and the reveal.
-- Map custom markers, journal hint ladder, refuge stash/inventory grid, service worker/offline.
+- More region families (Drowned Ward, gardens), the Foundation and the reveal. The Shoreward Stacks are visible but not reachable.
+- Map custom markers, refuge stash/inventory grid, service worker/offline.
 - Storage growth profiling at 1,000+ districts (each district is roughly 10–15 KB of JSON in the save).

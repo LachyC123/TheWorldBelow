@@ -2,9 +2,16 @@
 
 A pixel-art exploration survival shooter for the browser, designed first for **landscape iPhone Safari**, with keyboard and mouse supported too. Beautiful mystery above, frightening depths below, and muzzle flashes that light up the room you're in.
 
-**Status: M0–M3.** An authored opening slice (home, rainy street, laundrette, service tunnels, pumping gallery, the Pipeworks mini-boss) opens onto a **persistent generated frontier**. Storm drains, manholes and tunnel exits lead into seeded districts with secrets, curios, upgrades, landmarks, refuges and shortcuts. Every district is saved permanently once discovered. See [PROGRESS.md](PROGRESS.md) for what's verified and what isn't.
+**Status: M0–M3 plus a world-structure pass.**
+- **The opening slice.** Home, the rainy street, the laundrette, the service tunnels, the pumping gallery and the Pipeworks mini-boss. It opens onto a **persistent generated frontier**.
+- **Optional depths.** Below it all lie **Bracken Underground's Last Platform** (several ways in) and an **underground sea** governed by the tide. Beyond them is a colossal door that leads somewhere you already know.
+- **Objectives come from evidence.** The journal holds questions and observations, with optional hints.
+
+See [PROGRESS.md](PROGRESS.md) for what's verified and what isn't, and [docs/WORLD_STRUCTURE.md](docs/WORLD_STRUCTURE.md) for the route graph.
 
 ![Muzzle flash revealing the Cistern Hall](docs/screenshots/cistern_muzzle_flash.png)
+
+![The spring ebb: the causeway to the great door lies bare](docs/screenshots/world_shoals_spring_ebb.png)
 
 ## Run it
 
@@ -44,6 +51,7 @@ Settings include: aim assist, left-handed layout, control and text size, reduced
 | `npm run validate:content` | Content validation only: IDs, references, reachability, fair secrets, atlas frames |
 | `npm run art` | Regenerate all pixel art from `tools/art` into `public/assets` |
 | `npm run smoke [-- URL]` | Playwright browser run of the slice plus the generated frontier (44 checks; screenshots go to `captures/smoke/`) |
+| `npm run smoke:world [-- URL]` | Playwright run of the world-structure pass: both Platform Zero approaches, the tide, Edda's cellar, every shortcut, journal hints, save/reload (40 checks; `captures/smoke-world/`) |
 
 ## Repository map
 
