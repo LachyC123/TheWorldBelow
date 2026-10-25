@@ -40,17 +40,22 @@ function sidewalk(seed: number): Raster {
 }
 
 function wood(seed: number): Raster {
+  // long floorboards with staggered butt joints and a little grain
   const r = tile();
   const rand = rng(seed);
+  const joints = seed % 2 ? [11, 3, 14, 7] : [5, 13, 1, 9];
   for (let row = 0; row < 4; row++) {
     const y = row * 4;
-    const base = row % 2 ? P.wood[2] : P.wood[3];
+    const base = [P.wood[3], P.wood[2], P.wood[3], P.wood[2]][(row + seed) % 4]!;
     r.rect(0, y, T, 4, base);
-    r.hline(0, 15, y + 3, P.wood[1]);
     r.hline(0, 15, y, P.wood[4]);
-    const seam = Math.floor(rand() * 14) + 1;
-    r.vline(seam, y, y + 2, P.wood[1]);
-    if (rand() < 0.5) r.px(Math.floor(rand() * 16), y + 1, P.wood[1]);
+    r.hline(0, 15, y + 3, P.wood[1]);
+    const j = joints[row]!;
+    r.vline(j, y + 1, y + 2, P.wood[0]);
+    for (let g = 0; g < 2; g++) {
+      const gx = Math.floor(rand() * 12);
+      r.hline(gx, gx + 2 + Math.floor(rand() * 3), y + 1 + (g % 2), row % 2 ? P.wood[1] : P.wood[2]);
+    }
   }
   return r;
 }
@@ -101,13 +106,12 @@ function metal(seed: number, dark = false): Raster {
   const rand = rng(seed);
   const base = dark ? P.slate[1] : P.teal[2];
   r.rect(0, 0, T, T, base);
-  r.hline(0, 15, 0, dark ? P.slate[2] : P.teal[3]);
-  r.vline(0, 0, 15, dark ? P.slate[2] : P.teal[3]);
-  r.hline(0, 15, 15, P.teal[0]);
-  r.vline(15, 0, 15, P.teal[0]);
+  // plates are 2 tiles wide: only a soft seam on alternate edges keeps the grid calm
+  r.hline(0, 15, 15, P.teal[1]);
+  if (seed % 2) r.vline(15, 0, 15, P.teal[1]);
   // tread pattern
-  for (let y = 3; y < 14; y += 4) for (let x = 3; x < 14; x += 4) r.px(x, y, dark ? P.slate[3] : P.teal[4]).px(x + 1, y + 1, P.teal[1]);
-  r.px(1, 1, P.mint[2]).px(14, 1, P.mint[2]).px(1, 14, P.mint[1]).px(14, 14, P.mint[1]);
+  for (let y = 3; y < 14; y += 4) for (let x = 3; x < 14; x += 4) r.px(x, y, dark ? P.slate[3] : P.teal[3]).px(x + 1, y + 1, P.teal[1]);
+  r.px(1, 1, P.mint[1]).px(14, 13, P.teal[0]);
   if (rand() < 0.5) r.speckle(2, 2, 12, 12, [P.rust[2]], 0.04, rand);
   return r;
 }
@@ -220,11 +224,11 @@ function drain(seed: number): Raster {
 
 function puddle(seed: number): Raster {
   const r = asphalt(seed, true);
-  r.ellipse(8, 8, 7, 5, P.water[2]);
-  r.ellipse(8, 8, 6, 4, P.water[3]);
-  r.hline(4, 9, 6, P.amber[3]); // window reflection
-  r.hline(6, 8, 7, P.amber[2]);
-  r.hline(8, 12, 10, P.water[4]);
+  r.ellipse(8, 9, 7, 4, P.water[1]);
+  r.ellipse(8, 9, 6, 3, P.water[2]);
+  r.hline(5, 7, 8, P.water[4]); // sky sheen
+  r.px(10, 10, P.amber[2]); // a lamp caught in the water
+  r.px(11, 10, P.amber[1]);
   return r;
 }
 

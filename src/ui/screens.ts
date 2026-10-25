@@ -207,7 +207,7 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- pause
-  pause(opts: { objective: string; onResume: () => void; onMap: () => void; onJournal: () => void; onSettings: () => void; onControls: () => void; onExport: () => void; onSaveExit: () => void; readOnly: boolean }): void {
+  pause(opts: { objective: string; onResume: () => void; onMap: () => void; onJournal: () => void; onEquipment: () => void; onSettings: () => void; onControls: () => void; onExport: () => void; onSaveExit: () => void; readOnly: boolean }): void {
     const card = h(
       'div',
       { class: 'card' },
@@ -220,11 +220,38 @@ export class Screens {
         btn('Resume', opts.onResume, 'primary'),
         btn('Map', opts.onMap),
         btn('Journal', opts.onJournal),
+        btn('Equipment', opts.onEquipment),
         btn('Settings', opts.onSettings),
         btn('Controls', opts.onControls),
         btn('Export save (backup file)', opts.onExport),
         btn('Save & Exit to title', opts.onSaveExit),
       ),
+    );
+    this.push(this.screen(card));
+  }
+
+  // ---------------------------------------------------------------- equipment
+  equipment(data: GameData, onBack: () => void): void {
+    const DESC: Record<string, string> = {
+      service_pistol: 'Reliable and accurate. Eight light rounds; quick feedback at mid range.',
+      pump_shotgun: 'Short range, strong interruption and a wide flash that lights whole rooms. Shells are scarce.',
+    };
+    const item = (title: string, text: string): HTMLElement => h('div', { class: 'journal-entry' }, h('b', {}, title), h('span', {}, text));
+    const weapons = data.weapons.map((id) => {
+      const res = id === 'pump_shotgun' ? data.reserves.shells : data.reserves.light_rounds;
+      const name = id === 'pump_shotgun' ? 'Pump Shotgun' : 'Service Pistol';
+      return item(`${name}${data.weapons[data.activeWeapon] === id ? ' (equipped)' : ''}`, `${DESC[id] ?? ''} Loaded ${data.mag[id] ?? 0}, carrying ${res}.`);
+    });
+    const caps = data.capabilities.map((c) => (c === 'torch_lens' ? item('Torch Lens', 'Ground glass from the Pipekeeper’s lamp: your torch reaches further and wider.') : item(c, '')));
+    const card = h(
+      'div',
+      { class: 'card wide' },
+      h('h2', {}, 'Equipment'),
+      h('div', { class: 'journal-section' }, h('h3', {}, 'Weapons'), ...(weapons.length ? weapons : [h('p', {}, 'Unarmed.')])),
+      h('div', { class: 'journal-section' }, h('h3', {}, 'Supplies'), item('Bandages', `${data.bandages} carried. Heals 40 over 1.2 s; dodging or taking damage interrupts it.`), item('Torch', `${data.torchOn ? 'On' : 'Off'}. Never runs out. Lamp Leeches are drawn to a steady beam.`)),
+      caps.length ? h('div', { class: 'journal-section' }, h('h3', {}, 'Tools'), ...caps) : null,
+      data.cache ? h('p', { class: 'meta' }, `Dropped supplies waiting in ${REGION_DEFS[data.cache.regionId]?.name ?? 'the dark'} (marked red on the map).`) : null,
+      h('div', { class: 'btns row', style: 'margin-top:12px' }, btn('Back', onBack, 'primary')),
     );
     this.push(this.screen(card));
   }

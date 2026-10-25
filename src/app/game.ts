@@ -804,6 +804,7 @@ export class GameApp {
       },
       onMap: () => this.openMap(),
       onJournal: () => this.screens.journal(this.data, () => this.screens.pop()),
+      onEquipment: () => this.screens.equipment(this.data, () => this.screens.pop()),
       onSettings: () => this.openSettings(),
       onControls: () => this.screens.controls(this.input.mode === 'touch', () => this.screens.pop()),
       onExport: () => this.slotId && void this.exportSlot(this.slotId),

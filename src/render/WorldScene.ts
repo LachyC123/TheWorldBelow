@@ -80,6 +80,8 @@ export class WorldScene extends Phaser.Scene {
   private tracerPool: Phaser.GameObjects.Image[] = [];
   private muzzle!: Phaser.GameObjects.Image;
   private muzzleT = 0;
+  private bloom!: Phaser.GameObjects.Image;
+  private bloomT = 0;
   private recoilT = 0;
   private marker!: Phaser.GameObjects.Image;
   private reticle!: Phaser.GameObjects.Image;
@@ -124,6 +126,7 @@ export class WorldScene extends Phaser.Scene {
       gun: this.add.image(0, 0, 'chars', 'weapon_service_pistol'),
     };
     this.muzzle = this.add.image(0, 0, 'fx', 'muzzle_pistol_0').setDepth(D.tracer).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    this.bloom = this.add.image(0, 0, 'fx', 'glow_64').setDepth(D.glow).setBlendMode(Phaser.BlendModes.ADD).setVisible(false).setTint(0xffd8a0);
     this.marker = this.add.image(0, 0, 'fx', 'target_0').setDepth(D.marker).setVisible(false);
     this.reticle = this.add.image(0, 0, 'fx', 'reticle').setDepth(D.marker).setVisible(false);
     this.cameras.main.setRoundPixels(true);
@@ -377,6 +380,10 @@ export class WorldScene extends Phaser.Scene {
       gun.setFlipY(left);
       gun.setDepth(body.depth + (p.face === 'up' ? -0.001 : 0.001));
     }
+    if (this.bloomT > 0) {
+      this.bloomT -= dt;
+      this.bloom.setVisible(this.bloomT > 0).setAlpha(Math.max(0, this.bloomT / 0.09) * 0.55);
+    } else this.bloom.setVisible(false);
     if (this.muzzleT > 0) {
       this.muzzleT -= dt;
       const wid2 = d.weapons[d.activeWeapon] ?? 'service_pistol';
@@ -675,7 +682,9 @@ export class WorldScene extends Phaser.Scene {
           this.muzzleT = 0.07;
           this.recoilT = 0.08;
           this.muzzle.setPosition(ev.x, ev.y).setRotation(ev.angle);
-          this.addFlash(ev.x + Math.cos(ev.angle) * 6, ev.y + Math.sin(ev.angle) * 6, w.flashRadiusPx, [255, 214, 150], w.flashPeakMs, w.flashDecayMs, 1.35);
+          this.addFlash(ev.x + Math.cos(ev.angle) * 6, ev.y + Math.sin(ev.angle) * 6, w.flashRadiusPx, [255, 214, 150], w.flashPeakMs, w.flashDecayMs, 1.6);
+          this.bloomT = this.settings.reducedFlash ? 0 : 0.09;
+          this.bloom.setPosition(ev.x, ev.y).setScale(ev.weaponId === 'pump_shotgun' ? 1.3 : 0.9);
           this.addShake(w.shakePx, ev.angle);
           this.audio.play(w.shotCueId);
           const n = ev.weaponId === 'pump_shotgun' ? 9 : 5;

@@ -69,7 +69,7 @@ export const service: RegionDef = {
     C: { floor: Floor.CABLE_CORNER },
     L: { floor: Floor.CABLE_H },
   },
-  ambient: [34, 38, 50],
+  ambient: [24, 27, 37],
   ambience: 'tunnel',
   motes: 'dust',
   refuge: { id: 'refuge_relay_booth', entry: 'booth' },

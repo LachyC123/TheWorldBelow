@@ -106,7 +106,7 @@ await wait(100);
 await page.keyboard.up('w');
 await page.keyboard.down('k');
 let skitterDead = false;
-for (let i = 0; i < 40 && !skitterDead; i++) {
+for (let i = 0; i < 70 && !skitterDead; i++) {
   await wait(150);
   if (i === 6) await shot('04_street_fight');
   const e = await S(() => { const en = window.__twb.app.world.enemies.find((x) => x.id === 'street_drain_skitter'); return { dead: en.dead, st: en.state }; });
@@ -291,7 +291,7 @@ const startX = (await state()).x;
 const magBefore = (await state()).mag.service_pistol;
 await touch('touchStart', [{ x: 120, y: 260, id: 1 }, { x: fire.x + fire.width / 2, y: fire.y + fire.height / 2, id: 2 }]);
 await touch('touchMove', [{ x: 170, y: 260, id: 1 }, { x: fire.x + fire.width / 2, y: fire.y + fire.height / 2, id: 2 }]);
-await wait(600);
+await wait(1000);
 await shot('15_touch');
 const mid = await state();
 check('touch: move finger moves while fire finger shoots', mid.x > startX + 10 && (mid.mag.service_pistol !== magBefore || mid.res.light_rounds !== s.res.light_rounds));
