@@ -16,7 +16,8 @@
     "test": "vitest run",
     "validate:content": "vitest run tests/content.test.ts",
     "art": "node tools/art/build.ts",
-    "smoke": "node tools/smoke.mjs"
+    "smoke": "node tools/smoke.mjs",
+    "smoke:world": "node tools/smoke-world.mjs"
   },
   "dependencies": {
     "@fontsource/pixelify-sans": "5.3.0",

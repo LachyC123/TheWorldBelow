@@ -51,6 +51,7 @@ export class GameApp {
   private lookT = 0;
   private announceT = 0;
   private announceIdx = 0;
+  private obsToastAt = -1e9;
   private readonly hud = new Hud();
   private readonly dialogue = new Dialogue();
   private readonly screens = new Screens();
@@ -649,7 +650,10 @@ export class GameApp {
     if (this.data.flags[id]) return;
     const before = this.questionKey();
     this.setFlag(id);
-    if (this.questionKey() !== before) this.hud.toast('Journal: new observation');
+    if (this.questionKey() !== before && performance.now() - this.obsToastAt > 2500) {
+      this.obsToastAt = performance.now();
+      this.hud.toast('Journal: new observation');
+    }
   }
 
   private questionKey(): string {
@@ -891,6 +895,12 @@ export class GameApp {
         this.hud.subtitle('', DIALOGUE.stacks_reveal![0]!.text, 7);
         this.observe(OBS.stacks);
         if (!d.finds.landmarks.includes('The Shoreward Stacks (seen)')) d.finds.landmarks.push('The Shoreward Stacks (seen)');
+        return;
+      case 'reveal_door':
+        this.look(6 * TILE, 6 * TILE, 3.2);
+        this.audio.play('discover');
+        this.hud.subtitle('', DIALOGUE.door_reveal![0]!.text, 6);
+        this.observe(OBS.greatDoor);
         return;
       case 'read_edda_letter':
         await this.talk('edda_letter');

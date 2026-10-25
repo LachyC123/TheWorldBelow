@@ -19,7 +19,7 @@ const m = new MapBuilder(56, 22)
   .carve(2, 11, 47, 4, '.')
   .sprinkle('.', ',', 6, 5)
   .hrun(2, 48, 15, 'e')
-  .carve(36, 12, 2, 1, 'z')
+  .set(36, 12, 'z')
   // track bed: west tunnel to the storm drains, east end past the third rail to the shaft hatch
   .carve(0, 16, 56, 4, 't')
   .carve(53, 17, 2, 2, 'g')
@@ -68,6 +68,15 @@ const entities: EntityDef[] = [
   { kind: 'interact', id: 'station_network_map_read', tx: 16, ty: 2, w: 2, verb: 'Study', label: 'Network map', action: 'read_network_map' },
   ...[6, 8, 12, 14].map((x): EntityDef => ({ kind: 'prop', id: `station_barrier_${x}`, tx: x, ty: 6, frame: 'ticket_barrier', solid: { w: 1, h: 1 } })),
   { kind: 'pickup', id: 'pickup_station_rounds', tx: 4, ty: 3, item: 'light_rounds', amount: 10 },
+  // ticket hall dressing: the last day of service, left as it was
+  { kind: 'prop', id: 'station_poster_a', tx: 13, ty: 1, frame: 'poster_0', wall: true, oy: -1 },
+  { kind: 'prop', id: 'station_poster_b', tx: 19, ty: 1, frame: 'poster_1', wall: true, oy: -1 },
+  { kind: 'prop', id: 'station_poster_c', tx: 7, ty: 1, frame: 'poster_0', wall: true, oy: -1 },
+  { kind: 'prop', id: 'station_ticket_office', tx: 3, ty: 6, frame: 'counter', solid: { w: 2, h: 1 } },
+  { kind: 'prop', id: 'station_hall_bench', tx: 16, ty: 7, frame: 'platform_bench', solid: { w: 2, h: 1 } },
+  { kind: 'prop', id: 'station_hall_bin', tx: 20, ty: 5, frame: 'bin', solid: { w: 1, h: 1 } },
+  { kind: 'prop', id: 'station_hall_crate', tx: 20, ty: 2, frame: 'crate', solid: { w: 1, h: 1 } },
+  { kind: 'prop', id: 'station_hall_puddle', tx: 9, ty: 4, frame: 'puddle_prop', floor: true },
   { kind: 'pickup', id: 'pickup_station_ticket', tx: 19, ty: 3, item: 'curio', amount: 1, ref: 'curio_platform_pass' },
   // STAFF ONLY door to the Service Veins: a manual release on this side
   { kind: 'prop', id: 'station_staff_door', tx: 1, ty: 3, frame: 'staff_door_closed', wall: true, alt: { when: any(flag(F.stationStaffOpen), flag(F.relayReconnected)), frame: 'staff_door_open' } },

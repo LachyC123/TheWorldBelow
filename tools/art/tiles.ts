@@ -432,9 +432,9 @@ function track(seed: number): Raster {
 function sand(seed: number, wet: boolean, glow = false): Raster {
   const r = tile();
   const rand = rng(seed);
-  r.rect(0, 0, T, T, wet ? '#4a4c52' : '#6a6a66');
-  r.speckle(0, 0, T, T, wet ? ['#3a3d44', '#5a5d64', '#2f3a48'] : ['#5a5a56', '#7c7c76', '#8a8880'], 0.3, rand);
-  if (wet) for (let i = 0; i < 2; i++) { const y = Math.floor(rand() * 15); const x = Math.floor(rand() * 8); r.hline(x, x + 4, y, '#5f7a90'); }
+  r.rect(0, 0, T, T, glow ? '#7a7262' : wet ? '#4a4c52' : '#6a6a66');
+  r.speckle(0, 0, T, T, glow ? ['#6a6252', '#8a8270', '#5a6a62'] : wet ? ['#3a3d44', '#5a5d64', '#2f3a48'] : ['#5a5a56', '#7c7c76', '#8a8880'], 0.3, rand);
+  if (wet && !glow) for (let i = 0; i < 2; i++) { const y = Math.floor(rand() * 15); const x = Math.floor(rand() * 8); r.hline(x, x + 4, y, '#5f7a90'); }
   if (glow) for (let i = 0; i < 3; i++) r.px(Math.floor(rand() * 16), Math.floor(rand() * 16), P.mint[4]);
   return r;
 }
@@ -469,8 +469,8 @@ function deepWater(seed: number): Raster {
 
 function tideWater(): Raster {
   const r = tile();
-  r.rect(0, 0, T, T, '#13304a');
-  r.hline(2, 6, 4, '#2a5a80').hline(9, 13, 10, '#2a5a80').px(12, 3, '#5f9fcf');
+  r.rect(0, 0, T, T, '#0a1828');
+  r.hline(2, 6, 4, '#16324e').hline(9, 13, 10, '#16324e').px(12, 3, '#2a5a80');
   return r;
 }
 

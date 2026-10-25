@@ -143,8 +143,8 @@ function staffDoor(open: boolean): Raster {
     r.rect(0, 0, 16, 16, P.void).rect(0, 0, 2, 16, P.teal[2]).rect(14, 0, 2, 16, P.teal[2]);
     return r;
   }
-  r.rect(1, 0, 14, 16, P.teal[2]).hline(1, 14, 0, P.teal[4]).rect(2, 3, 12, 5, P.bone[2]);
-  text(r, 3, 3, 'STA', P.verm[1]);
+  r.rect(1, 0, 14, 16, P.teal[2]).hline(1, 14, 0, P.teal[4]).rect(3, 2, 10, 6, P.bone[2]);
+  r.ellipse(8, 5, 2.5, 2.5, P.verm[2]).hline(6, 10, 5, P.bone[3]); // no-entry roundel
   r.hline(3, 12, 11, P.teal[1]).hline(3, 12, 13, P.teal[1]);
   r.rect(0, 0, 1, 16, P.ink).rect(15, 0, 1, 16, P.ink);
   return r;
@@ -215,19 +215,20 @@ function buoy(f: number): Raster {
 function giantDoor(): Raster {
   const r = R(120, 104);
   // a door built for something forty times your height; you could not see its top from the shore
-  r.rect(0, 0, 120, 104, '#1a2028');
-  r.rect(8, 0, 104, 104, '#2a3240');
-  for (let x = 10; x < 110; x += 12) r.vline(x, 0, 103, '#222a36');
-  for (let y = 8; y < 104; y += 22) r.hline(8, 111, y, '#34405a');
-  r.rect(56, 0, 8, 104, '#141820'); // the seam between the leaves
-  for (let i = 0; i < 5; i++) r.rect(40 + i * 8, 40, 4, 12, '#4a5874'); // a hinge-bolt the size of a car
-  r.ellipse(60, 46, 10, 10, P.mint[1]).ellipse(60, 46, 7, 7, '#1a2028').ellipse(60, 46, 3, 3, P.mint[3]);
+  r.rect(0, 0, 120, 104, '#222a36');
+  r.rect(8, 0, 104, 104, '#46526a');
+  for (let x = 10; x < 110; x += 12) r.vline(x, 0, 103, '#3a4558').vline(x + 1, 0, 103, '#56647e');
+  for (let y = 8; y < 104; y += 22) r.hline(8, 111, y, '#5e6c88').hline(8, 111, y + 1, '#323c4e');
+  r.rect(57, 0, 6, 104, '#1a2028').vline(56, 0, 103, '#6a7896'); // the seam between the leaves
+  for (let i = 0; i < 5; i++) r.rect(40 + i * 8, 40, 4, 12, '#7a88a6').vline(40 + i * 8, 40, 51, '#9aa8c4'); // hinge bolts the size of cars
+  r.ellipse(60, 46, 11, 11, P.mint[2]).ellipse(60, 46, 8, 8, '#222a36').ellipse(60, 46, 4, 4, P.mint[4]).px(59, 45, P.mint[5]);
   // the human-sized hatch cut into the bottom corner, much later, by hand
-  r.rect(26, 84, 12, 20, P.wood[1]).rect(27, 85, 10, 19, P.wood[2]).px(35, 94, P.amber[4]);
-  r.rect(25, 83, 14, 1, P.slate[4]);
+  r.rect(26, 84, 12, 20, P.wood[1]).rect(27, 85, 10, 19, P.wood[3]).hline(27, 36, 85, P.wood[4]).px(35, 94, P.amber[4]);
+  r.rect(25, 83, 14, 1, P.slate[5]);
   const rand = rng(41);
-  r.speckle(8, 60, 104, 44, ['#3a5a4a', '#2a4a3a'], 0.08, rand);
-  for (let i = 0; i < 12; i++) r.px(10 + Math.floor(rand() * 100), 70 + Math.floor(rand() * 30), P.mint[4]);
+  r.speckle(8, 58, 104, 46, ['#3a6a5a', '#2e5a4a', '#4a7a66'], 0.1, rand);
+  for (let i = 0; i < 14; i++) r.px(10 + Math.floor(rand() * 100), 64 + Math.floor(rand() * 36), P.mint[4]);
+  r.hline(8, 111, 0, '#7a88a6');
   return r.outline('#07080c');
 }
 function giantStep(): Raster {

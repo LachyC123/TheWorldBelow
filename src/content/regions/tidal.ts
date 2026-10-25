@@ -17,8 +17,17 @@ const m = new MapBuilder(W, H)
   // shaft ledge (route B arrives here in the dark)
   .carve(46, 2, 8, 3, 'r')
   .carve(42, 4, 4, 2, 'r')
-  // giant steps descending to the shore
+  // giant steps descending to the shore: each riser is taller than a person, so a narrow
+  // human stair has been cut straight down through them
   .carve(20, 7, 28, 10, 'R')
+  .hrun(20, 47, 9, '#')
+  .hrun(20, 47, 12, '#')
+  .hrun(20, 47, 15, '#')
+  .carve(33, 9, 2, 1, 'u')
+  .carve(33, 12, 2, 1, 'u')
+  .carve(33, 15, 2, 1, 'u')
+  // the recess the great door stands in (the door itself is a solid prop, so light can reach it)
+  .carve(3, 3, 6, 6, 'R')
   // beach
   .carve(14, 17, 45, 4, 'S')
   .hrun(14, 58, 21, 's')
@@ -36,8 +45,6 @@ const m = new MapBuilder(W, H)
   .hrun(44, 46, 31, 'q');
 
 const crabs: Array<[number, number]> = [[4, 11], [5, 14], [4, 17], [8, 18], [10, 17]];
-const steps: EntityDef[] = [];
-for (const ty of [9, 12, 15]) for (let tx = 20; tx < 48; tx += 4) steps.push({ kind: 'prop', id: `tidal_step_${tx}_${ty}`, tx, ty, frame: 'giant_step', floor: true, ox: 24 });
 
 const platformLamps: StaticLight[] = [28, 34, 40].map((x, i) => ({
   id: `tidal_platform_lamp_${i}`,
@@ -63,14 +70,13 @@ const entities: EntityDef[] = [
   { kind: 'enemy', id: 'tidal_shaft_leech_b', tx: 43, ty: 5, type: 'leech', respawns: true },
   // --- arrival: the scale of the place, introduced from the top of the steps
   { kind: 'trigger', id: 'tidal_first_sight', tx: 14, ty: 18, w: 45, h: 1, action: 'reveal_stacks', once: true },
-  ...steps,
   { kind: 'prop', id: 'tidal_growth_a', tx: 21, ty: 8, frame: 'glow_growth_0', anim: seq('glow_growth', 2, 1), glow: { radius: 12, color: [120, 255, 200], dy: -8 } },
   { kind: 'prop', id: 'tidal_growth_b', tx: 45, ty: 11, frame: 'glow_growth_0', anim: seq('glow_growth', 2, 0.8), glow: { radius: 12, color: [120, 255, 200], dy: -8 } },
   { kind: 'prop', id: 'tidal_growth_c', tx: 30, ty: 14, frame: 'glow_growth_0', anim: seq('glow_growth', 2, 1.2), glow: { radius: 12, color: [120, 255, 200], dy: -8 } },
   { kind: 'pickup', id: 'pickup_tidal_bandage', tx: 46, ty: 8, item: 'bandage', amount: 1 },
   // --- the great door: built for something enormous; a hatch was cut into it much later, by hand
-  { kind: 'prop', id: 'tidal_great_door', tx: 5, ty: 8, frame: 'giant_door', wall: true, ox: 10 },
-  { kind: 'trigger', id: 'tidal_door_seen', tx: 12, ty: 15, w: 4, h: 7, action: `observe:${OBS.greatDoor}`, once: true },
+  { kind: 'prop', id: 'tidal_great_door', tx: 3, ty: 3, frame: 'giant_door', solid: { w: 6, h: 6 }, ox: 2 },
+  { kind: 'trigger', id: 'tidal_door_seen', tx: 12, ty: 15, w: 4, h: 7, action: 'reveal_door', once: true },
   { kind: 'exit', id: 'tidal_hatch', tx: 4, ty: 9, w: 1, h: 1, auto: false, verb: 'Open', label: 'Hatch in the great door', target: { region: REGIONS.cellar, entry: 'cave' } },
   // --- the tide's instruments
   { kind: 'prop', id: 'tidal_gauge', tx: 11, ty: 15, frame: 'tide_gauge_0', alt: [{ when: flag('tmp_tide_spring'), frame: 'tide_gauge_2' }, { when: flag('tmp_tide_low'), frame: 'tide_gauge_1' }] },
@@ -102,6 +108,7 @@ export const tidal: RegionDef = {
     e: { floor: Floor.PLATFORM_EDGE },
     r: { floor: Floor.CAVE_ROCK },
     R: { floor: Floor.CAVE_ROCK },
+    u: { floor: Floor.STAIRS_DOWN },
     S: { floor: Floor.SAND },
     s: { floor: Floor.SAND_WET },
     h: { floor: Floor.SHINGLE },
@@ -128,7 +135,9 @@ export const tidal: RegionDef = {
     { id: 'tidal_steps_glow', x: px(33), y: px(11), radius: 120, color: [90, 150, 210], intensity: 0.35 },
     { id: 'tidal_beach_glow', x: px(24), y: px(19), radius: 110, color: [90, 150, 210], intensity: 0.4 },
     { id: 'tidal_beach_glow_b', x: px(50), y: px(19), radius: 110, color: [90, 150, 210], intensity: 0.4 },
-    { id: 'tidal_door_glow', x: px(6), y: px(6), radius: 96, color: [120, 255, 200], intensity: 0.35, flicker: 0.05 },
+    { id: 'tidal_door_glow', x: px(6), y: px(11), radius: 150, color: [120, 220, 200], intensity: 0.55, flicker: 0.05 },
+    { id: 'tidal_shoal_glow', x: px(9), y: px(17), radius: 90, color: [140, 190, 230], intensity: 0.35 },
+    { id: 'tidal_stair_glow', x: px(34), y: px(11), radius: 70, color: [255, 220, 170], intensity: 0.35 },
     { id: 'tidal_nemi_lantern', x: px(44), y: px(19), radius: 72, color: [255, 200, 120], intensity: 0.9, flicker: 0.06 },
     { id: 'tidal_bell_lamp', x: px(16), y: px(16), radius: 56, color: [255, 200, 120], intensity: 0.6, flicker: 0.04 },
     { id: 'tidal_pier_lamp', x: px(45), y: px(30), radius: 56, color: [255, 200, 120], intensity: 0.6, flicker: 0.1 },

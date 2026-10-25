@@ -99,6 +99,7 @@ export const DIALOGUE: Record<string, Line[]> = {
   bell_plaque: [{ speaker: 'Bell plaque', text: 'RUNG BY THE TIDE. WHEN IT RINGS, WALK ASHORE.' }],
   buoy_marker: [{ speaker: 'Buoy marker', text: 'END OF SURVEYED WATER. Beyond it, the lights of the Stacks, very far and very high.' }],
   stacks_reveal: [{ speaker: '', text: 'Across the water, a town stacked on itself, lit window over lit window, far higher than this cavern should allow. Something small moves between the lights.' }],
+  door_reveal: [{ speaker: '', text: 'Set into the cliff above the shoals: a door. Not a door for people. Someone, much later, cut a small hatch into its foot.' }],
   tide_carried: [{ speaker: '', text: 'The water rises around you, lifts you, and sets you down on the shingle.' }],
   tide_bell: [{ speaker: 'Tide bell', text: 'The bell rings over the shoals: the water is turning.' }],
   trapdoor_locked: [{ speaker: '', text: 'A trapdoor under the floorboards you never noticed. It does not budge: bolted from below.' }],
